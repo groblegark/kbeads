@@ -35,6 +35,7 @@ func (s *BeadsServer) NewHTTPHandler() http.Handler {
 	mux.HandleFunc("GET /v1/configs/{key...}", s.handleGetConfig)
 	mux.HandleFunc("GET /v1/configs", s.handleListConfigs)
 	mux.HandleFunc("DELETE /v1/configs/{key...}", s.handleDeleteConfig)
+	mux.HandleFunc("GET /v1/events/stream", s.handleEventStream)
 	mux.HandleFunc("GET /v1/health", s.handleHealth)
 	return mux
 }

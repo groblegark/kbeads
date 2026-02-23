@@ -19,6 +19,7 @@ type BeadsServer struct {
 	beadsv1.UnimplementedBeadsServiceServer
 	store     store.Store
 	publisher events.Publisher
+	sseHub    *sseHub
 }
 
 // NewBeadsServer returns a new BeadsServer backed by the given store and publisher.
@@ -26,6 +27,7 @@ func NewBeadsServer(s store.Store, p events.Publisher) *BeadsServer {
 	return &BeadsServer{
 		store:     s,
 		publisher: p,
+		sseHub:    newSSEHub(),
 	}
 }
 
@@ -48,6 +50,7 @@ func (s *BeadsServer) recordAndPublish(ctx context.Context, topic, beadID, actor
 	if err := s.publisher.Publish(ctx, topic, event); err != nil {
 		slog.Warn("failed to publish event", "topic", topic, "bead_id", beadID, "error", err)
 	}
+	s.broadcastEvent(topic, event)
 }
 
 // inputError indicates invalid user input.
