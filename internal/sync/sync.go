@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/alfredjeanlab/beads/internal/store"
+	"github.com/groblegark/kbeads/internal/store"
 )
 
 // Destination is the interface for a sync target (S3, git, etc.).

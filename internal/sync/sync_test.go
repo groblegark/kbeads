@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alfredjeanlab/beads/internal/model"
+	"github.com/groblegark/kbeads/internal/model"
 )
 
 // mockDestination records calls to Write.
@@ -29,7 +29,7 @@ func (d *mockDestination) Write(_ context.Context, data []byte) error {
 func TestSchedulerStartStop(t *testing.T) {
 	ms := newMockStore()
 	now := time.Now().UTC()
-	ms.beads["bd-1"] = &model.Bead{ID: "bd-1", Kind: model.KindIssue, Type: model.TypeTask, Title: "T1", Status: model.StatusOpen, CreatedAt: now, UpdatedAt: now}
+	ms.beads["kd-1"] = &model.Bead{ID: "kd-1", Kind: model.KindIssue, Type: model.TypeTask, Title: "T1", Status: model.StatusOpen, CreatedAt: now, UpdatedAt: now}
 	ms.configs["view:inbox"] = &model.Config{Key: "view:inbox", Value: json.RawMessage(`{}`), CreatedAt: now, UpdatedAt: now}
 
 	dest := &mockDestination{}

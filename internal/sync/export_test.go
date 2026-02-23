@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alfredjeanlab/beads/internal/model"
+	"github.com/groblegark/kbeads/internal/model"
 )
 
 func TestExportJSONL_Empty(t *testing.T) {
@@ -37,13 +37,13 @@ func TestExportJSONL_WithBeadsAndConfigs(t *testing.T) {
 	now := time.Now().UTC()
 
 	// Add beads out of ID order to verify sorting.
-	ms.beads["bd-zzz"] = &model.Bead{ID: "bd-zzz", Kind: model.KindIssue, Type: model.TypeTask, Title: "Second", Status: model.StatusOpen, CreatedAt: now, UpdatedAt: now}
-	ms.beads["bd-aaa"] = &model.Bead{ID: "bd-aaa", Kind: model.KindIssue, Type: model.TypeBug, Title: "First", Status: model.StatusOpen, CreatedAt: now, UpdatedAt: now}
+	ms.beads["kd-zzz"] = &model.Bead{ID: "kd-zzz", Kind: model.KindIssue, Type: model.TypeTask, Title: "Second", Status: model.StatusOpen, CreatedAt: now, UpdatedAt: now}
+	ms.beads["kd-aaa"] = &model.Bead{ID: "kd-aaa", Kind: model.KindIssue, Type: model.TypeBug, Title: "First", Status: model.StatusOpen, CreatedAt: now, UpdatedAt: now}
 
-	// Add relational data for bd-aaa.
-	ms.labels["bd-aaa"] = []string{"urgent", "frontend"}
-	ms.deps["bd-aaa"] = []*model.Dependency{{BeadID: "bd-aaa", DependsOnID: "bd-zzz", Type: model.DepBlocks, CreatedAt: now}}
-	ms.comments["bd-aaa"] = []*model.Comment{{ID: 1, BeadID: "bd-aaa", Author: "alice", Text: "Fix this", CreatedAt: now}}
+	// Add relational data for kd-aaa.
+	ms.labels["kd-aaa"] = []string{"urgent", "frontend"}
+	ms.deps["kd-aaa"] = []*model.Dependency{{BeadID: "kd-aaa", DependsOnID: "kd-zzz", Type: model.DepBlocks, CreatedAt: now}}
+	ms.comments["kd-aaa"] = []*model.Comment{{ID: 1, BeadID: "kd-aaa", Author: "alice", Text: "Fix this", CreatedAt: now}}
 
 	// Add a config.
 	ms.configs["view:inbox"] = &model.Config{Key: "view:inbox", Value: json.RawMessage(`{"filter":{}}`), CreatedAt: now, UpdatedAt: now}
@@ -68,7 +68,7 @@ func TestExportJSONL_WithBeadsAndConfigs(t *testing.T) {
 		t.Fatalf("header counts: bead=%d config=%d", h.BeadCount, h.ConfigCount)
 	}
 
-	// Verify beads are sorted by ID (bd-aaa before bd-zzz).
+	// Verify beads are sorted by ID (kd-aaa before kd-zzz).
 	var rec1, rec2 record
 	if err := json.Unmarshal([]byte(lines[1]), &rec1); err != nil {
 		t.Fatalf("unmarshal line 1: %v", err)
@@ -91,19 +91,19 @@ func TestExportJSONL_WithBeadsAndConfigs(t *testing.T) {
 		t.Fatalf("unmarshal b2: %v", err)
 	}
 
-	if b1.ID != "bd-aaa" || b2.ID != "bd-zzz" {
+	if b1.ID != "kd-aaa" || b2.ID != "kd-zzz" {
 		t.Fatalf("beads not sorted: got %q, %q", b1.ID, b2.ID)
 	}
 
-	// Verify bd-aaa has embedded relations.
+	// Verify kd-aaa has embedded relations.
 	if len(b1.Labels) != 2 {
-		t.Fatalf("expected 2 labels for bd-aaa, got %d", len(b1.Labels))
+		t.Fatalf("expected 2 labels for kd-aaa, got %d", len(b1.Labels))
 	}
 	if len(b1.Dependencies) != 1 {
-		t.Fatalf("expected 1 dependency for bd-aaa, got %d", len(b1.Dependencies))
+		t.Fatalf("expected 1 dependency for kd-aaa, got %d", len(b1.Dependencies))
 	}
 	if len(b1.Comments) != 1 {
-		t.Fatalf("expected 1 comment for bd-aaa, got %d", len(b1.Comments))
+		t.Fatalf("expected 1 comment for kd-aaa, got %d", len(b1.Comments))
 	}
 
 	// Verify config line.

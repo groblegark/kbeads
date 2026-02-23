@@ -1,42 +1,42 @@
 # Beads
 
-An event-driven work-tracking system. Manages hierarchical work items ("beads") with dependencies, labels, comments, and event history. Exposes gRPC and REST APIs and ships a Cobra-based CLI (`bd`).
+An event-driven work-tracking system. Manages hierarchical work items ("beads") with dependencies, labels, comments, and event history. Exposes gRPC and REST APIs and ships a Cobra-based CLI (`kd`).
 
 ## Quick start
 
 ```sh
-go build ./cmd/bd
+go build ./cmd/kd
 
 export BEADS_DATABASE_URL="postgres://user:pass@localhost:5432/beads?sslmode=disable"
-bd serve
+kd serve
 ```
 
 Or via Docker:
 
 ```sh
-docker build -t bd .
-docker run -e BEADS_DATABASE_URL="..." -p 9090:9090 -p 8080:8080 bd
+docker build -t kd .
+docker run -e BEADS_DATABASE_URL="..." -p 9090:9090 -p 8080:8080 kd
 ```
 
 ## CLI examples
 
 ```sh
-bd create "Fix login bug" --type bug
-bd list --status open
-bd show bd-abc123
-bd update bd-abc123 --status in_progress
-bd close bd-abc123
-bd comment bd-abc123 "Root cause was a nil pointer"
-bd label bd-abc123 add backend
-bd dep bd-abc123 add bd-def456
-bd search "login"
+kd create "Fix login bug" --type bug
+kd list --status open
+kd show kd-abc123
+kd update kd-abc123 --status in_progress
+kd close kd-abc123
+kd comment kd-abc123 "Root cause was a nil pointer"
+kd label kd-abc123 add backend
+kd dep kd-abc123 add kd-def456
+kd search "login"
 ```
 
 Custom types can be registered at runtime:
 
 ```sh
-bd config create type:decision '{"kind":"issue","fields":[{"name":"outcome","type":"enum","values":["approved","rejected","pending"],"required":true}]}'
-bd create "Approve Q1 roadmap" --type decision --fields '{"outcome":"pending"}'
+kd config create type:decision '{"kind":"issue","fields":[{"name":"outcome","type":"enum","values":["approved","rejected","pending"],"required":true}]}'
+kd create "Approve Q1 roadmap" --type decision --fields '{"outcome":"pending"}'
 ```
 
 ## Configuration
@@ -54,4 +54,3 @@ bd create "Approve Q1 roadmap" --type decision --fields '{"outcome":"pending"}'
 ```sh
 go test ./...    # uses go-sqlmock; no running Postgres needed
 ```
-

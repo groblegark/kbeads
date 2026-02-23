@@ -1,6 +1,6 @@
 syntax = "proto3";
 package beads.v1;
-option go_package = "github.com/alfredjeanlab/beads/gen/beads/v1;beadsv1";
+option go_package = "github.com/groblegark/kbeads/gen/beads/v1;beadsv1";
 
 import "google/protobuf/timestamp.proto";
 

@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	beadsv1 "github.com/alfredjeanlab/beads/gen/beads/v1"
-	"github.com/alfredjeanlab/beads/internal/model"
+	beadsv1 "github.com/groblegark/kbeads/gen/beads/v1"
+	"github.com/groblegark/kbeads/internal/model"
 )
 
 func TestGRPCSetConfig(t *testing.T) {

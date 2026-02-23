@@ -8,7 +8,7 @@ import (
 )
 
 // DefaultPrefix is prepended to every generated ID.
-var DefaultPrefix = "bd-"
+var DefaultPrefix = "kd-"
 
 // Alphabet defines the character set used for the random portion of the ID.
 var Alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"

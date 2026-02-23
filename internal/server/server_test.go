@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"testing"
 
-	beadsv1 "github.com/alfredjeanlab/beads/gen/beads/v1"
-	"github.com/alfredjeanlab/beads/internal/model"
+	beadsv1 "github.com/groblegark/kbeads/gen/beads/v1"
+	"github.com/groblegark/kbeads/internal/model"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -93,19 +93,19 @@ func TestGRPCErrorCodes(t *testing.T) {
 
 		// Dependencies
 		{"AddDependency/MissingBeadID", func(s *BeadsServer, ctx context.Context) error {
-			_, err := s.AddDependency(ctx, &beadsv1.AddDependencyRequest{DependsOnId: "bd-b", Type: "blocks"})
+			_, err := s.AddDependency(ctx, &beadsv1.AddDependencyRequest{DependsOnId: "kd-b", Type: "blocks"})
 			return err
 		}, codes.InvalidArgument},
 		{"AddDependency/MissingDependsOnID", func(s *BeadsServer, ctx context.Context) error {
-			_, err := s.AddDependency(ctx, &beadsv1.AddDependencyRequest{BeadId: "bd-a", Type: "blocks"})
+			_, err := s.AddDependency(ctx, &beadsv1.AddDependencyRequest{BeadId: "kd-a", Type: "blocks"})
 			return err
 		}, codes.InvalidArgument},
 		{"RemoveDependency/MissingBeadID", func(s *BeadsServer, ctx context.Context) error {
-			_, err := s.RemoveDependency(ctx, &beadsv1.RemoveDependencyRequest{DependsOnId: "bd-b"})
+			_, err := s.RemoveDependency(ctx, &beadsv1.RemoveDependencyRequest{DependsOnId: "kd-b"})
 			return err
 		}, codes.InvalidArgument},
 		{"RemoveDependency/MissingDependsOnID", func(s *BeadsServer, ctx context.Context) error {
-			_, err := s.RemoveDependency(ctx, &beadsv1.RemoveDependencyRequest{BeadId: "bd-a"})
+			_, err := s.RemoveDependency(ctx, &beadsv1.RemoveDependencyRequest{BeadId: "kd-a"})
 			return err
 		}, codes.InvalidArgument},
 		{"GetDependencies/MissingBeadID", func(s *BeadsServer, ctx context.Context) error {
@@ -119,7 +119,7 @@ func TestGRPCErrorCodes(t *testing.T) {
 			return err
 		}, codes.InvalidArgument},
 		{"AddLabel/MissingLabel", func(s *BeadsServer, ctx context.Context) error {
-			_, err := s.AddLabel(ctx, &beadsv1.AddLabelRequest{BeadId: "bd-a"})
+			_, err := s.AddLabel(ctx, &beadsv1.AddLabelRequest{BeadId: "kd-a"})
 			return err
 		}, codes.InvalidArgument},
 		{"RemoveLabel/MissingBeadID", func(s *BeadsServer, ctx context.Context) error {
@@ -127,7 +127,7 @@ func TestGRPCErrorCodes(t *testing.T) {
 			return err
 		}, codes.InvalidArgument},
 		{"RemoveLabel/MissingLabel", func(s *BeadsServer, ctx context.Context) error {
-			_, err := s.RemoveLabel(ctx, &beadsv1.RemoveLabelRequest{BeadId: "bd-a"})
+			_, err := s.RemoveLabel(ctx, &beadsv1.RemoveLabelRequest{BeadId: "kd-a"})
 			return err
 		}, codes.InvalidArgument},
 		{"GetLabels/MissingBeadID", func(s *BeadsServer, ctx context.Context) error {
@@ -141,7 +141,7 @@ func TestGRPCErrorCodes(t *testing.T) {
 			return err
 		}, codes.InvalidArgument},
 		{"AddComment/MissingText", func(s *BeadsServer, ctx context.Context) error {
-			_, err := s.AddComment(ctx, &beadsv1.AddCommentRequest{BeadId: "bd-a"})
+			_, err := s.AddComment(ctx, &beadsv1.AddCommentRequest{BeadId: "kd-a"})
 			return err
 		}, codes.InvalidArgument},
 		{"GetComments/MissingBeadID", func(s *BeadsServer, ctx context.Context) error {
@@ -191,12 +191,12 @@ func TestGRPCErrorCodes(t *testing.T) {
 func TestGRPCAddDependency(t *testing.T) {
 	srv, ms, ctx := testCtx(t)
 	resp, err := srv.AddDependency(ctx, &beadsv1.AddDependencyRequest{
-		BeadId: "bd-a", DependsOnId: "bd-b", Type: "blocks", CreatedBy: "alice",
+		BeadId: "kd-a", DependsOnId: "kd-b", Type: "blocks", CreatedBy: "alice",
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if resp.Dependency.BeadId != "bd-a" || resp.Dependency.DependsOnId != "bd-b" {
+	if resp.Dependency.BeadId != "kd-a" || resp.Dependency.DependsOnId != "kd-b" {
 		t.Fatalf("got bead_id=%q depends_on_id=%q", resp.Dependency.BeadId, resp.Dependency.DependsOnId)
 	}
 	requireEvent(t, ms, 1, "beads.dependency.added")
@@ -205,7 +205,7 @@ func TestGRPCAddDependency(t *testing.T) {
 func TestGRPCRemoveDependency(t *testing.T) {
 	srv, ms, ctx := testCtx(t)
 	if _, err := srv.RemoveDependency(ctx, &beadsv1.RemoveDependencyRequest{
-		BeadId: "bd-a", DependsOnId: "bd-b", Type: "blocks",
+		BeadId: "kd-a", DependsOnId: "kd-b", Type: "blocks",
 	}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -214,37 +214,37 @@ func TestGRPCRemoveDependency(t *testing.T) {
 
 func TestGRPCGetDependencies(t *testing.T) {
 	srv, ms, ctx := testCtx(t)
-	ms.deps["bd-a"] = []*model.Dependency{{BeadID: "bd-a", DependsOnID: "bd-b", Type: model.DepBlocks}}
+	ms.deps["kd-a"] = []*model.Dependency{{BeadID: "kd-a", DependsOnID: "kd-b", Type: model.DepBlocks}}
 
-	resp, err := srv.GetDependencies(ctx, &beadsv1.GetDependenciesRequest{BeadId: "bd-a"})
+	resp, err := srv.GetDependencies(ctx, &beadsv1.GetDependenciesRequest{BeadId: "kd-a"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(resp.Dependencies) != 1 || resp.Dependencies[0].DependsOnId != "bd-b" {
-		t.Fatalf("expected 1 dependency with depends_on_id=bd-b, got %v", resp.Dependencies)
+	if len(resp.Dependencies) != 1 || resp.Dependencies[0].DependsOnId != "kd-b" {
+		t.Fatalf("expected 1 dependency with depends_on_id=kd-b, got %v", resp.Dependencies)
 	}
 }
 
 func TestGRPCAddLabel(t *testing.T) {
 	srv, ms, ctx := testCtx(t)
-	ms.beads["bd-lbl1"] = &model.Bead{ID: "bd-lbl1", Title: "Bead", Kind: model.KindIssue, Type: model.TypeTask, Status: model.StatusOpen}
+	ms.beads["kd-lbl1"] = &model.Bead{ID: "kd-lbl1", Title: "Bead", Kind: model.KindIssue, Type: model.TypeTask, Status: model.StatusOpen}
 
-	resp, err := srv.AddLabel(ctx, &beadsv1.AddLabelRequest{BeadId: "bd-lbl1", Label: "urgent"})
+	resp, err := srv.AddLabel(ctx, &beadsv1.AddLabelRequest{BeadId: "kd-lbl1", Label: "urgent"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if resp.Bead.Id != "bd-lbl1" {
+	if resp.Bead.Id != "kd-lbl1" {
 		t.Fatalf("got bead_id=%q", resp.Bead.Id)
 	}
-	if len(ms.labels["bd-lbl1"]) != 1 {
-		t.Fatalf("expected 1 label, got %d", len(ms.labels["bd-lbl1"]))
+	if len(ms.labels["kd-lbl1"]) != 1 {
+		t.Fatalf("expected 1 label, got %d", len(ms.labels["kd-lbl1"]))
 	}
 	requireEvent(t, ms, 1, "beads.label.added")
 }
 
 func TestGRPCRemoveLabel(t *testing.T) {
 	srv, ms, ctx := testCtx(t)
-	if _, err := srv.RemoveLabel(ctx, &beadsv1.RemoveLabelRequest{BeadId: "bd-a", Label: "urgent"}); err != nil {
+	if _, err := srv.RemoveLabel(ctx, &beadsv1.RemoveLabelRequest{BeadId: "kd-a", Label: "urgent"}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	requireEvent(t, ms, 1, "beads.label.removed")
@@ -252,9 +252,9 @@ func TestGRPCRemoveLabel(t *testing.T) {
 
 func TestGRPCGetLabels(t *testing.T) {
 	srv, ms, ctx := testCtx(t)
-	ms.labels["bd-a"] = []string{"urgent", "frontend"}
+	ms.labels["kd-a"] = []string{"urgent", "frontend"}
 
-	resp, err := srv.GetLabels(ctx, &beadsv1.GetLabelsRequest{BeadId: "bd-a"})
+	resp, err := srv.GetLabels(ctx, &beadsv1.GetLabelsRequest{BeadId: "kd-a"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -265,12 +265,12 @@ func TestGRPCGetLabels(t *testing.T) {
 
 func TestGRPCAddComment(t *testing.T) {
 	srv, ms, ctx := testCtx(t)
-	resp, err := srv.AddComment(ctx, &beadsv1.AddCommentRequest{BeadId: "bd-cmt1", Author: "bob", Text: "Hello world"})
+	resp, err := srv.AddComment(ctx, &beadsv1.AddCommentRequest{BeadId: "kd-cmt1", Author: "bob", Text: "Hello world"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	c := resp.Comment
-	if c.BeadId != "bd-cmt1" || c.Text != "Hello world" || c.Author != "bob" {
+	if c.BeadId != "kd-cmt1" || c.Text != "Hello world" || c.Author != "bob" {
 		t.Fatalf("got bead_id=%q text=%q author=%q", c.BeadId, c.Text, c.Author)
 	}
 	requireEvent(t, ms, 1, "beads.comment.added")
@@ -278,11 +278,11 @@ func TestGRPCAddComment(t *testing.T) {
 
 func TestGRPCGetComments(t *testing.T) {
 	srv, ms, ctx := testCtx(t)
-	ms.comments["bd-a"] = []*model.Comment{
-		{ID: 1, BeadID: "bd-a", Author: "bob", Text: "Comment 1"},
-		{ID: 2, BeadID: "bd-a", Author: "alice", Text: "Comment 2"},
+	ms.comments["kd-a"] = []*model.Comment{
+		{ID: 1, BeadID: "kd-a", Author: "bob", Text: "Comment 1"},
+		{ID: 2, BeadID: "kd-a", Author: "alice", Text: "Comment 2"},
 	}
-	resp, err := srv.GetComments(ctx, &beadsv1.GetCommentsRequest{BeadId: "bd-a"})
+	resp, err := srv.GetComments(ctx, &beadsv1.GetCommentsRequest{BeadId: "kd-a"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -294,11 +294,11 @@ func TestGRPCGetComments(t *testing.T) {
 func TestGRPCGetEvents(t *testing.T) {
 	srv, ms, ctx := testCtx(t)
 	ms.events = []*model.Event{
-		{ID: 1, Topic: "beads.bead.created", BeadID: "bd-a", Payload: json.RawMessage(`{}`)},
-		{ID: 2, Topic: "beads.bead.updated", BeadID: "bd-a", Payload: json.RawMessage(`{}`)},
-		{ID: 3, Topic: "beads.bead.created", BeadID: "bd-b", Payload: json.RawMessage(`{}`)},
+		{ID: 1, Topic: "beads.bead.created", BeadID: "kd-a", Payload: json.RawMessage(`{}`)},
+		{ID: 2, Topic: "beads.bead.updated", BeadID: "kd-a", Payload: json.RawMessage(`{}`)},
+		{ID: 3, Topic: "beads.bead.created", BeadID: "kd-b", Payload: json.RawMessage(`{}`)},
 	}
-	resp, err := srv.GetEvents(ctx, &beadsv1.GetEventsRequest{BeadId: "bd-a"})
+	resp, err := srv.GetEvents(ctx, &beadsv1.GetEventsRequest{BeadId: "kd-a"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

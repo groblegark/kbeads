@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/alfredjeanlab/beads/internal/model"
+	"github.com/groblegark/kbeads/internal/model"
 )
 
 // scannable is the interface satisfied by both *sql.Row and *sql.Rows.

@@ -74,13 +74,13 @@ jobs:
         run: |
           go build \
             -ldflags="-s -w -X main.Version=${{ steps.ver.outputs.version }} -X main.Build=${GITHUB_SHA::7}" \
-            -o bd \
-            ./cmd/bd
-          tar -czf bd-${{ matrix.goos }}-${{ matrix.arch }}.tar.gz bd
+            -o kd \
+            ./cmd/kd
+          tar -czf kd-${{ matrix.goos }}-${{ matrix.arch }}.tar.gz kd
       - uses: actions/upload-artifact@v4
         with:
-          name: bd-${{ matrix.goos }}-${{ matrix.arch }}
-          path: bd-${{ matrix.goos }}-${{ matrix.arch }}.tar.gz
+          name: kd-${{ matrix.goos }}-${{ matrix.arch }}
+          path: kd-${{ matrix.goos }}-${{ matrix.arch }}.tar.gz
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')

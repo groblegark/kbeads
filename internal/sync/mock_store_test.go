@@ -6,8 +6,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/alfredjeanlab/beads/internal/model"
-	"github.com/alfredjeanlab/beads/internal/store"
+	"github.com/groblegark/kbeads/internal/model"
+	"github.com/groblegark/kbeads/internal/store"
 )
 
 // mockStore is a minimal in-memory store for sync tests.

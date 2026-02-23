@@ -1,6 +1,6 @@
 # Compiled binaries
-/bd
-/cmd/bd/bd
+/kd
+/cmd/kd/kd
 *.exe
 coverage.out
 .quench/

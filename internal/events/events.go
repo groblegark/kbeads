@@ -3,7 +3,7 @@ package events
 import (
 	"context"
 
-	"github.com/alfredjeanlab/beads/internal/model"
+	"github.com/groblegark/kbeads/internal/model"
 )
 
 // Event topic constants

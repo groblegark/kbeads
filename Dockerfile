@@ -1,8 +1,8 @@
-# Beads daemon (bd) — multi-stage build.
+# Beads daemon (kd) — multi-stage build.
 # CGO required for libicu (unicode normalization).
 #
 # Build:
-#   docker build --build-arg VERSION=dev --build-arg COMMIT=$(git rev-parse --short HEAD) -t bd .
+#   docker build --build-arg VERSION=dev --build-arg COMMIT=$(git rev-parse --short HEAD) -t kd .
 
 ARG GO_VERSION=1.25
 
@@ -21,7 +21,7 @@ ARG VERSION=dev
 ARG COMMIT=unknown
 RUN CGO_ENABLED=1 GOOS=linux go build \
     -ldflags="-s -w -X main.Version=${VERSION} -X main.Build=${COMMIT}" \
-    -o /bd ./cmd/bd
+    -o /kd ./cmd/kd
 
 FROM ubuntu:24.04
 
@@ -31,10 +31,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     groupadd -f -g 1000 beads && \
     useradd -u 1000 -g beads -s /bin/bash -m -d /home/beads beads || true
 
-COPY --from=builder /bd /usr/local/bin/bd
+COPY --from=builder /kd /usr/local/bin/kd
 
 USER 1000
 WORKDIR /home/beads
 
-ENTRYPOINT ["bd"]
+ENTRYPOINT ["kd"]
 CMD ["daemon", "start", "--foreground", "--tcp-addr=:9876", "--http-addr=:9877", "--log-json"]

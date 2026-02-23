@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	beadsv1 "github.com/alfredjeanlab/beads/gen/beads/v1"
+	beadsv1 "github.com/groblegark/kbeads/gen/beads/v1"
 	"github.com/spf13/cobra"
 )
 

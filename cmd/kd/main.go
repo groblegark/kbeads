@@ -6,7 +6,7 @@ import (
 	"os/exec"
 	"strings"
 
-	beadsv1 "github.com/alfredjeanlab/beads/gen/beads/v1"
+	beadsv1 "github.com/groblegark/kbeads/gen/beads/v1"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -40,7 +40,7 @@ func defaultServer() string {
 }
 
 var rootCmd = &cobra.Command{
-	Use:   "bd",
+	Use:   "kd",
 	Short: "CLI client for the Beads service",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		var err error

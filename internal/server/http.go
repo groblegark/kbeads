@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/alfredjeanlab/beads/internal/events"
-	"github.com/alfredjeanlab/beads/internal/model"
+	"github.com/groblegark/kbeads/internal/events"
+	"github.com/groblegark/kbeads/internal/model"
 )
 
 // NewHTTPHandler returns an http.Handler with all routes registered.

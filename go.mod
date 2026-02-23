@@ -1,4 +1,4 @@
-module github.com/alfredjeanlab/beads
+module github.com/groblegark/kbeads
 
 go 1.25.0
 

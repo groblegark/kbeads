@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alfredjeanlab/beads/internal/model"
+	"github.com/groblegark/kbeads/internal/model"
 	"github.com/nats-io/nats.go"
 )
 
@@ -58,7 +58,7 @@ func TestNATSPublisher_Publish(t *testing.T) {
 	defer sub.Unsubscribe() //nolint:errcheck
 	nc.Flush()
 
-	event := BeadCreated{Bead: &model.Bead{ID: "bd-pub1", Title: "Test"}}
+	event := BeadCreated{Bead: &model.Bead{ID: "kd-pub1", Title: "Test"}}
 	if err := pub.Publish(context.Background(), TopicBeadCreated, event); err != nil {
 		t.Fatalf("Publish error: %v", err)
 	}
@@ -70,8 +70,8 @@ func TestNATSPublisher_Publish(t *testing.T) {
 		if err := json.Unmarshal(msg.Data, &got); err != nil {
 			t.Fatalf("unmarshal: %v", err)
 		}
-		if got.Bead.ID != "bd-pub1" {
-			t.Errorf("got bead ID=%q, want %q", got.Bead.ID, "bd-pub1")
+		if got.Bead.ID != "kd-pub1" {
+			t.Errorf("got bead ID=%q, want %q", got.Bead.ID, "kd-pub1")
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for published message")
@@ -105,10 +105,10 @@ func TestNATSPublisher_PublishMultipleTopics(t *testing.T) {
 		topic string
 		event any
 	}{
-		{TopicBeadCreated, BeadCreated{Bead: &model.Bead{ID: "bd-1"}}},
-		{TopicBeadDeleted, BeadDeleted{BeadID: "bd-2"}},
-		{TopicLabelAdded, LabelAdded{BeadID: "bd-1", Label: "urgent"}},
-		{TopicCommentAdded, CommentAdded{Comment: &model.Comment{ID: 1, BeadID: "bd-1"}}},
+		{TopicBeadCreated, BeadCreated{Bead: &model.Bead{ID: "kd-1"}}},
+		{TopicBeadDeleted, BeadDeleted{BeadID: "kd-2"}},
+		{TopicLabelAdded, LabelAdded{BeadID: "kd-1", Label: "urgent"}},
+		{TopicCommentAdded, CommentAdded{Comment: &model.Comment{ID: 1, BeadID: "kd-1"}}},
 	} {
 		if err := pub.Publish(context.Background(), tc.topic, tc.event); err != nil {
 			t.Fatalf("Publish(%s): %v", tc.topic, err)

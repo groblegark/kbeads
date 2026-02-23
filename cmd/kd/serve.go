@@ -10,11 +10,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/alfredjeanlab/beads/internal/config"
-	"github.com/alfredjeanlab/beads/internal/events"
-	"github.com/alfredjeanlab/beads/internal/server"
-	"github.com/alfredjeanlab/beads/internal/store/postgres"
-	beadsync "github.com/alfredjeanlab/beads/internal/sync"
+	"github.com/groblegark/kbeads/internal/config"
+	"github.com/groblegark/kbeads/internal/events"
+	"github.com/groblegark/kbeads/internal/server"
+	"github.com/groblegark/kbeads/internal/store/postgres"
+	beadsync "github.com/groblegark/kbeads/internal/sync"
 	"github.com/spf13/cobra"
 )
 

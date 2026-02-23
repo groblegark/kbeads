@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/alfredjeanlab/beads/internal/model"
+	"github.com/groblegark/kbeads/internal/model"
 )
 
 // newMockDB creates a sqlmock database with automatic cleanup and expectation checking.
@@ -126,12 +126,12 @@ func TestQueryCreateBead(t *testing.T) {
 	db, mock := newMockDB(t)
 	now := time.Now().UTC()
 	bead := &model.Bead{
-		ID: "bd-test1", Kind: model.KindIssue, Type: model.TypeTask,
+		ID: "kd-test1", Kind: model.KindIssue, Type: model.TypeTask,
 		Title: "Test bead", Status: model.StatusOpen, CreatedAt: now, UpdatedAt: now,
 	}
 	mock.ExpectExec("INSERT INTO beads").
 		WithArgs(
-			"bd-test1", sqlmock.AnyArg(), "issue", "task", "Test bead", "", "",
+			"kd-test1", sqlmock.AnyArg(), "issue", "task", "Test bead", "", "",
 			"open", 0, "", "", now, "", now,
 			sqlmock.AnyArg(), "", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
 		).
@@ -151,22 +151,22 @@ func TestQueryGetBead(t *testing.T) {
 		"status", "priority", "assignee", "owner", "created_at", "created_by", "updated_at",
 		"closed_at", "closed_by", "due_at", "defer_until", "fields",
 	}).AddRow(
-		"bd-test1", nil, "issue", "task", "Test bead", nil, nil,
+		"kd-test1", nil, "issue", "task", "Test bead", nil, nil,
 		"open", 0, nil, nil, now, nil, now, nil, nil, nil, nil, nil,
 	)
-	mock.ExpectQuery("SELECT .+ FROM beads WHERE id = \\$1").WithArgs("bd-test1").WillReturnRows(rows)
-	mock.ExpectQuery("SELECT label FROM labels WHERE bead_id = \\$1").WithArgs("bd-test1").
+	mock.ExpectQuery("SELECT .+ FROM beads WHERE id = \\$1").WithArgs("kd-test1").WillReturnRows(rows)
+	mock.ExpectQuery("SELECT label FROM labels WHERE bead_id = \\$1").WithArgs("kd-test1").
 		WillReturnRows(sqlmock.NewRows([]string{"label"}).AddRow("urgent"))
-	mock.ExpectQuery("SELECT .+ FROM deps WHERE bead_id = \\$1").WithArgs("bd-test1").
+	mock.ExpectQuery("SELECT .+ FROM deps WHERE bead_id = \\$1").WithArgs("kd-test1").
 		WillReturnRows(sqlmock.NewRows([]string{"bead_id", "depends_on_id", "type", "created_at", "created_by", "metadata"}))
-	mock.ExpectQuery("SELECT .+ FROM comments WHERE bead_id = \\$1").WithArgs("bd-test1").
+	mock.ExpectQuery("SELECT .+ FROM comments WHERE bead_id = \\$1").WithArgs("kd-test1").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "bead_id", "author", "text", "created_at"}))
 
-	bead, err := queryGetBead(context.Background(), db, "bd-test1")
+	bead, err := queryGetBead(context.Background(), db, "kd-test1")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if bead.ID != "bd-test1" || bead.Title != "Test bead" {
+	if bead.ID != "kd-test1" || bead.Title != "Test bead" {
 		t.Fatalf("got id=%q title=%q", bead.ID, bead.Title)
 	}
 	if len(bead.Labels) != 1 || bead.Labels[0] != "urgent" {
@@ -186,10 +186,10 @@ func TestQueryGetBead_NotFound(t *testing.T) {
 
 func TestQueryDeleteBead(t *testing.T) {
 	db, mock := newMockDB(t)
-	mock.ExpectExec("DELETE FROM beads WHERE id = \\$1").WithArgs("bd-del1").
+	mock.ExpectExec("DELETE FROM beads WHERE id = \\$1").WithArgs("kd-del1").
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
-	if err := queryDeleteBead(context.Background(), db, "bd-del1"); err != nil {
+	if err := queryDeleteBead(context.Background(), db, "kd-del1"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -208,12 +208,12 @@ func TestQueryUpdateBead(t *testing.T) {
 	db, mock := newMockDB(t)
 	now := time.Now().UTC()
 	bead := &model.Bead{
-		ID: "bd-test1", Kind: model.KindIssue, Type: model.TypeTask,
+		ID: "kd-test1", Kind: model.KindIssue, Type: model.TypeTask,
 		Title: "Updated bead", Status: model.StatusOpen, CreatedAt: now, UpdatedAt: now,
 	}
 	mock.ExpectQuery("UPDATE beads SET").
 		WithArgs(
-			"bd-test1", sqlmock.AnyArg(), "issue", "task", "Updated bead", "", "",
+			"kd-test1", sqlmock.AnyArg(), "issue", "task", "Updated bead", "", "",
 			"open", 0, "", "",
 			sqlmock.AnyArg(), "", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(),
 		).
@@ -244,10 +244,10 @@ func TestQueryAddDependency(t *testing.T) {
 	db, mock := newMockDB(t)
 	now := time.Now().UTC()
 	dep := &model.Dependency{
-		BeadID: "bd-a", DependsOnID: "bd-b", Type: model.DepBlocks, CreatedAt: now, CreatedBy: "alice",
+		BeadID: "kd-a", DependsOnID: "kd-b", Type: model.DepBlocks, CreatedAt: now, CreatedBy: "alice",
 	}
 	mock.ExpectExec("INSERT INTO deps").
-		WithArgs("bd-a", "bd-b", "blocks", now, "alice", "").
+		WithArgs("kd-a", "kd-b", "blocks", now, "alice", "").
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	if err := queryAddDependency(context.Background(), db, dep); err != nil {
@@ -259,18 +259,18 @@ func TestQueryGetDependencies(t *testing.T) {
 	db, mock := newMockDB(t)
 	now := time.Now().UTC()
 	rows := sqlmock.NewRows([]string{"bead_id", "depends_on_id", "type", "created_at", "created_by", "metadata"}).
-		AddRow("bd-a", "bd-b", "blocks", now, nil, nil).
-		AddRow("bd-a", "bd-c", "related", now, "alice", nil)
-	mock.ExpectQuery("SELECT .+ FROM deps WHERE bead_id = \\$1").WithArgs("bd-a").WillReturnRows(rows)
+		AddRow("kd-a", "kd-b", "blocks", now, nil, nil).
+		AddRow("kd-a", "kd-c", "related", now, "alice", nil)
+	mock.ExpectQuery("SELECT .+ FROM deps WHERE bead_id = \\$1").WithArgs("kd-a").WillReturnRows(rows)
 
-	deps, err := queryGetDependencies(context.Background(), db, "bd-a")
+	deps, err := queryGetDependencies(context.Background(), db, "kd-a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(deps) != 2 {
 		t.Fatalf("expected 2 dependencies, got %d", len(deps))
 	}
-	if deps[0].DependsOnID != "bd-b" || deps[1].CreatedBy != "alice" {
+	if deps[0].DependsOnID != "kd-b" || deps[1].CreatedBy != "alice" {
 		t.Fatalf("got deps[0].DependsOnID=%q deps[1].CreatedBy=%q", deps[0].DependsOnID, deps[1].CreatedBy)
 	}
 }
@@ -278,30 +278,30 @@ func TestQueryGetDependencies(t *testing.T) {
 func TestQueryRemoveDependency(t *testing.T) {
 	db, mock := newMockDB(t)
 	mock.ExpectExec("DELETE FROM deps").
-		WithArgs("bd-a", "bd-b", "blocks").
+		WithArgs("kd-a", "kd-b", "blocks").
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
-	if err := queryRemoveDependency(context.Background(), db, "bd-a", "bd-b", model.DepBlocks); err != nil {
+	if err := queryRemoveDependency(context.Background(), db, "kd-a", "kd-b", model.DepBlocks); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
 func TestQueryAddLabel(t *testing.T) {
 	db, mock := newMockDB(t)
-	mock.ExpectExec("INSERT INTO labels").WithArgs("bd-a", "urgent").
+	mock.ExpectExec("INSERT INTO labels").WithArgs("kd-a", "urgent").
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
-	if err := queryAddLabel(context.Background(), db, "bd-a", "urgent"); err != nil {
+	if err := queryAddLabel(context.Background(), db, "kd-a", "urgent"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
 func TestQueryRemoveLabel(t *testing.T) {
 	db, mock := newMockDB(t)
-	mock.ExpectExec("DELETE FROM labels").WithArgs("bd-a", "urgent").
+	mock.ExpectExec("DELETE FROM labels").WithArgs("kd-a", "urgent").
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
-	if err := queryRemoveLabel(context.Background(), db, "bd-a", "urgent"); err != nil {
+	if err := queryRemoveLabel(context.Background(), db, "kd-a", "urgent"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -309,9 +309,9 @@ func TestQueryRemoveLabel(t *testing.T) {
 func TestQueryGetLabels(t *testing.T) {
 	db, mock := newMockDB(t)
 	rows := sqlmock.NewRows([]string{"label"}).AddRow("urgent").AddRow("frontend")
-	mock.ExpectQuery("SELECT label FROM labels WHERE bead_id = \\$1").WithArgs("bd-a").WillReturnRows(rows)
+	mock.ExpectQuery("SELECT label FROM labels WHERE bead_id = \\$1").WithArgs("kd-a").WillReturnRows(rows)
 
-	labels, err := queryGetLabels(context.Background(), db, "bd-a")
+	labels, err := queryGetLabels(context.Background(), db, "kd-a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -324,11 +324,11 @@ func TestQueryRecordEvent(t *testing.T) {
 	db, mock := newMockDB(t)
 	now := time.Now().UTC()
 	event := &model.Event{
-		Topic: "beads.bead.created", BeadID: "bd-a", Actor: "alice",
-		Payload: json.RawMessage(`{"bead":{"id":"bd-a"}}`),
+		Topic: "beads.bead.created", BeadID: "kd-a", Actor: "alice",
+		Payload: json.RawMessage(`{"bead":{"id":"kd-a"}}`),
 	}
 	mock.ExpectQuery("INSERT INTO events").
-		WithArgs("beads.bead.created", "bd-a", "alice", []byte(`{"bead":{"id":"bd-a"}}`)).
+		WithArgs("beads.bead.created", "kd-a", "alice", []byte(`{"bead":{"id":"kd-a"}}`)).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "created_at"}).AddRow(1, now))
 
 	if err := queryRecordEvent(context.Background(), db, event); err != nil {
@@ -343,11 +343,11 @@ func TestQueryGetEvents(t *testing.T) {
 	db, mock := newMockDB(t)
 	now := time.Now().UTC()
 	rows := sqlmock.NewRows([]string{"id", "topic", "bead_id", "actor", "payload", "created_at"}).
-		AddRow(1, "beads.bead.created", "bd-a", "alice", []byte(`{}`), now).
-		AddRow(2, "beads.bead.updated", "bd-a", nil, []byte(`{}`), now)
-	mock.ExpectQuery("SELECT .+ FROM events WHERE bead_id = \\$1").WithArgs("bd-a").WillReturnRows(rows)
+		AddRow(1, "beads.bead.created", "kd-a", "alice", []byte(`{}`), now).
+		AddRow(2, "beads.bead.updated", "kd-a", nil, []byte(`{}`), now)
+	mock.ExpectQuery("SELECT .+ FROM events WHERE bead_id = \\$1").WithArgs("kd-a").WillReturnRows(rows)
 
-	evts, err := queryGetEvents(context.Background(), db, "bd-a")
+	evts, err := queryGetEvents(context.Background(), db, "kd-a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -461,9 +461,9 @@ func TestQueryDeleteConfig_NotFound(t *testing.T) {
 func TestQueryAddComment(t *testing.T) {
 	db, mock := newMockDB(t)
 	now := time.Now().UTC()
-	comment := &model.Comment{BeadID: "bd-a", Author: "alice", Text: "Hello world"}
+	comment := &model.Comment{BeadID: "kd-a", Author: "alice", Text: "Hello world"}
 	mock.ExpectQuery("INSERT INTO comments").
-		WithArgs("bd-a", "alice", "Hello world").
+		WithArgs("kd-a", "alice", "Hello world").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "created_at"}).AddRow(int64(1), now))
 
 	if err := queryAddComment(context.Background(), db, comment); err != nil {
@@ -478,11 +478,11 @@ func TestQueryGetComments(t *testing.T) {
 	db, mock := newMockDB(t)
 	now := time.Now().UTC()
 	rows := sqlmock.NewRows([]string{"id", "bead_id", "author", "text", "created_at"}).
-		AddRow(int64(1), "bd-a", "alice", "First", now).
-		AddRow(int64(2), "bd-a", nil, "Second", now)
-	mock.ExpectQuery("SELECT .+ FROM comments WHERE bead_id = \\$1").WithArgs("bd-a").WillReturnRows(rows)
+		AddRow(int64(1), "kd-a", "alice", "First", now).
+		AddRow(int64(2), "kd-a", nil, "Second", now)
+	mock.ExpectQuery("SELECT .+ FROM comments WHERE bead_id = \\$1").WithArgs("kd-a").WillReturnRows(rows)
 
-	comments, err := queryGetComments(context.Background(), db, "bd-a")
+	comments, err := queryGetComments(context.Background(), db, "kd-a")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -597,7 +597,7 @@ func TestQueryListBeads(t *testing.T) {
 			}
 			r := sqlmock.NewRows(beadWithTotalColumns)
 			for i := range tc.wantCount {
-				addBeadWithTotalRow(r, tc.wantTotal, fmt.Sprintf("bd-%d", i+1), "issue", "task", "T", "open", 0, now)
+				addBeadWithTotalRow(r, tc.wantTotal, fmt.Sprintf("kd-%d", i+1), "issue", "task", "T", "open", 0, now)
 			}
 			eq.WillReturnRows(r)
 
@@ -621,18 +621,18 @@ func TestQueryCloseBead(t *testing.T) {
 
 	rows := sqlmock.NewRows(beadRowColumns)
 	rows.AddRow(
-		"bd-cls1", nil, "issue", "task", "Close me", nil, nil,
+		"kd-cls1", nil, "issue", "task", "Close me", nil, nil,
 		"closed", 0, nil, nil, now, nil, now,
 		now, "alice", nil, nil, nil,
 	)
-	mock.ExpectQuery("UPDATE beads SET").WithArgs("bd-cls1", "alice").WillReturnRows(rows)
-	emptyRelationalExpectations(mock, "bd-cls1")
+	mock.ExpectQuery("UPDATE beads SET").WithArgs("kd-cls1", "alice").WillReturnRows(rows)
+	emptyRelationalExpectations(mock, "kd-cls1")
 
-	bead, err := queryCloseBead(context.Background(), db, "bd-cls1", "alice")
+	bead, err := queryCloseBead(context.Background(), db, "kd-cls1", "alice")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if bead.ID != "bd-cls1" || bead.Status != "closed" || bead.ClosedBy != "alice" {
+	if bead.ID != "kd-cls1" || bead.Status != "closed" || bead.ClosedBy != "alice" {
 		t.Fatalf("got id=%q status=%q closed_by=%q", bead.ID, bead.Status, bead.ClosedBy)
 	}
 	if bead.ClosedAt == nil {
@@ -656,25 +656,25 @@ func TestQueryCloseBead_WithRelationalData(t *testing.T) {
 
 	rows := sqlmock.NewRows(beadRowColumns)
 	rows.AddRow(
-		"bd-cls2", nil, "issue", "task", "Close me", nil, nil,
+		"kd-cls2", nil, "issue", "task", "Close me", nil, nil,
 		"closed", 0, nil, nil, now, nil, now,
 		now, "bob", nil, nil, nil,
 	)
-	mock.ExpectQuery("UPDATE beads SET").WithArgs("bd-cls2", "bob").WillReturnRows(rows)
+	mock.ExpectQuery("UPDATE beads SET").WithArgs("kd-cls2", "bob").WillReturnRows(rows)
 
 	// Labels
-	mock.ExpectQuery("SELECT label FROM labels WHERE bead_id = \\$1").WithArgs("bd-cls2").
+	mock.ExpectQuery("SELECT label FROM labels WHERE bead_id = \\$1").WithArgs("kd-cls2").
 		WillReturnRows(sqlmock.NewRows([]string{"label"}).AddRow("urgent").AddRow("backend"))
 	// Dependencies
-	mock.ExpectQuery("SELECT .+ FROM deps WHERE bead_id = \\$1").WithArgs("bd-cls2").
+	mock.ExpectQuery("SELECT .+ FROM deps WHERE bead_id = \\$1").WithArgs("kd-cls2").
 		WillReturnRows(sqlmock.NewRows([]string{"bead_id", "depends_on_id", "type", "created_at", "created_by", "metadata"}).
-			AddRow("bd-cls2", "bd-other", "blocks", now, nil, nil))
+			AddRow("kd-cls2", "kd-other", "blocks", now, nil, nil))
 	// Comments
-	mock.ExpectQuery("SELECT .+ FROM comments WHERE bead_id = \\$1").WithArgs("bd-cls2").
+	mock.ExpectQuery("SELECT .+ FROM comments WHERE bead_id = \\$1").WithArgs("kd-cls2").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "bead_id", "author", "text", "created_at"}).
-			AddRow(int64(1), "bd-cls2", "alice", "Done!", now))
+			AddRow(int64(1), "kd-cls2", "alice", "Done!", now))
 
-	bead, err := queryCloseBead(context.Background(), db, "bd-cls2", "bob")
+	bead, err := queryCloseBead(context.Background(), db, "kd-cls2", "bob")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -700,7 +700,7 @@ func TestScanBead_WithOptionalFields(t *testing.T) {
 		"status", "priority", "assignee", "owner", "created_at", "created_by", "updated_at",
 		"closed_at", "closed_by", "due_at", "defer_until", "fields",
 	}).AddRow(
-		"bd-full", "test-slug", "issue", "task", "Full bead", "A description", "Some notes",
+		"kd-full", "test-slug", "issue", "task", "Full bead", "A description", "Some notes",
 		"closed", 2, "bob", "alice", now, "carol", now,
 		closedAt, "dave", dueAt, nil, []byte(`{"foo":"bar"}`),
 	)

@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	beadsv1 "github.com/alfredjeanlab/beads/gen/beads/v1"
-	"github.com/alfredjeanlab/beads/internal/model"
+	beadsv1 "github.com/groblegark/kbeads/gen/beads/v1"
+	"github.com/groblegark/kbeads/internal/model"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -40,21 +40,21 @@ func TestGRPCCreateBead_WithLabels(t *testing.T) {
 
 func TestGRPCGetBead(t *testing.T) {
 	srv, ms, ctx := testCtx(t)
-	ms.beads["bd-test1"] = &model.Bead{ID: "bd-test1", Title: "Test bead", Kind: model.KindIssue, Type: model.TypeTask, Status: model.StatusOpen}
+	ms.beads["kd-test1"] = &model.Bead{ID: "kd-test1", Title: "Test bead", Kind: model.KindIssue, Type: model.TypeTask, Status: model.StatusOpen}
 
-	resp, err := srv.GetBead(ctx, &beadsv1.GetBeadRequest{Id: "bd-test1"})
+	resp, err := srv.GetBead(ctx, &beadsv1.GetBeadRequest{Id: "kd-test1"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if resp.Bead.Id != "bd-test1" || resp.Bead.Title != "Test bead" {
+	if resp.Bead.Id != "kd-test1" || resp.Bead.Title != "Test bead" {
 		t.Fatalf("got id=%q title=%q", resp.Bead.Id, resp.Bead.Title)
 	}
 }
 
 func TestGRPCListBeads(t *testing.T) {
 	srv, ms, ctx := testCtx(t)
-	ms.beads["bd-1"] = &model.Bead{ID: "bd-1", Title: "A", Status: model.StatusOpen}
-	ms.beads["bd-2"] = &model.Bead{ID: "bd-2", Title: "B", Status: model.StatusOpen}
+	ms.beads["kd-1"] = &model.Bead{ID: "kd-1", Title: "A", Status: model.StatusOpen}
+	ms.beads["kd-2"] = &model.Bead{ID: "kd-2", Title: "B", Status: model.StatusOpen}
 
 	resp, err := srv.ListBeads(ctx, &beadsv1.ListBeadsRequest{})
 	if err != nil {
@@ -67,10 +67,10 @@ func TestGRPCListBeads(t *testing.T) {
 
 func TestGRPCUpdateBead(t *testing.T) {
 	srv, ms, ctx := testCtx(t)
-	ms.beads["bd-upd1"] = &model.Bead{ID: "bd-upd1", Title: "Original", Kind: model.KindIssue, Type: model.TypeTask, Status: model.StatusOpen}
+	ms.beads["kd-upd1"] = &model.Bead{ID: "kd-upd1", Title: "Original", Kind: model.KindIssue, Type: model.TypeTask, Status: model.StatusOpen}
 
 	title := "Updated"
-	resp, err := srv.UpdateBead(ctx, &beadsv1.UpdateBeadRequest{Id: "bd-upd1", Title: &title})
+	resp, err := srv.UpdateBead(ctx, &beadsv1.UpdateBeadRequest{Id: "kd-upd1", Title: &title})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -82,10 +82,10 @@ func TestGRPCUpdateBead(t *testing.T) {
 
 func TestGRPCUpdateBead_StatusClosed(t *testing.T) {
 	srv, ms, ctx := testCtx(t)
-	ms.beads["bd-upd2"] = &model.Bead{ID: "bd-upd2", Title: "To close", Kind: model.KindIssue, Type: model.TypeTask, Status: model.StatusOpen}
+	ms.beads["kd-upd2"] = &model.Bead{ID: "kd-upd2", Title: "To close", Kind: model.KindIssue, Type: model.TypeTask, Status: model.StatusOpen}
 
 	closed := "closed"
-	resp, err := srv.UpdateBead(ctx, &beadsv1.UpdateBeadRequest{Id: "bd-upd2", Status: &closed})
+	resp, err := srv.UpdateBead(ctx, &beadsv1.UpdateBeadRequest{Id: "kd-upd2", Status: &closed})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -96,9 +96,9 @@ func TestGRPCUpdateBead_StatusClosed(t *testing.T) {
 
 func TestGRPCCloseBead(t *testing.T) {
 	srv, ms, ctx := testCtx(t)
-	ms.beads["bd-cls1"] = &model.Bead{ID: "bd-cls1", Title: "To close", Kind: model.KindIssue, Type: model.TypeTask, Status: model.StatusOpen}
+	ms.beads["kd-cls1"] = &model.Bead{ID: "kd-cls1", Title: "To close", Kind: model.KindIssue, Type: model.TypeTask, Status: model.StatusOpen}
 
-	resp, err := srv.CloseBead(ctx, &beadsv1.CloseBeadRequest{Id: "bd-cls1", ClosedBy: "alice"})
+	resp, err := srv.CloseBead(ctx, &beadsv1.CloseBeadRequest{Id: "kd-cls1", ClosedBy: "alice"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -110,12 +110,12 @@ func TestGRPCCloseBead(t *testing.T) {
 
 func TestGRPCDeleteBead(t *testing.T) {
 	srv, ms, ctx := testCtx(t)
-	ms.beads["bd-del1"] = &model.Bead{ID: "bd-del1", Title: "Delete me", Status: model.StatusOpen}
+	ms.beads["kd-del1"] = &model.Bead{ID: "kd-del1", Title: "Delete me", Status: model.StatusOpen}
 
-	if _, err := srv.DeleteBead(ctx, &beadsv1.DeleteBeadRequest{Id: "bd-del1"}); err != nil {
+	if _, err := srv.DeleteBead(ctx, &beadsv1.DeleteBeadRequest{Id: "kd-del1"}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if _, ok := ms.beads["bd-del1"]; ok {
+	if _, ok := ms.beads["kd-del1"]; ok {
 		t.Fatal("expected bead to be deleted from store")
 	}
 	requireEvent(t, ms, 1, "beads.bead.deleted")
@@ -124,14 +124,14 @@ func TestGRPCDeleteBead(t *testing.T) {
 func TestGRPCUpdateBead_ClearDeferUntil(t *testing.T) {
 	srv, ms, ctx := testCtx(t)
 	future := time.Now().Add(24 * time.Hour)
-	ms.beads["bd-def1"] = &model.Bead{
-		ID: "bd-def1", Title: "Deferred", Kind: model.KindIssue, Type: model.TypeTask,
+	ms.beads["kd-def1"] = &model.Bead{
+		ID: "kd-def1", Title: "Deferred", Kind: model.KindIssue, Type: model.TypeTask,
 		Status: model.StatusDeferred, DeferUntil: &future,
 	}
 
 	// Send a zero-time timestamp to clear defer_until.
 	zero := timestamppb.New(time.Time{})
-	resp, err := srv.UpdateBead(ctx, &beadsv1.UpdateBeadRequest{Id: "bd-def1", DeferUntil: zero})
+	resp, err := srv.UpdateBead(ctx, &beadsv1.UpdateBeadRequest{Id: "kd-def1", DeferUntil: zero})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -143,13 +143,13 @@ func TestGRPCUpdateBead_ClearDeferUntil(t *testing.T) {
 func TestGRPCUpdateBead_ClearDueAt(t *testing.T) {
 	srv, ms, ctx := testCtx(t)
 	future := time.Now().Add(24 * time.Hour)
-	ms.beads["bd-due1"] = &model.Bead{
-		ID: "bd-due1", Title: "With due", Kind: model.KindIssue, Type: model.TypeTask,
+	ms.beads["kd-due1"] = &model.Bead{
+		ID: "kd-due1", Title: "With due", Kind: model.KindIssue, Type: model.TypeTask,
 		Status: model.StatusOpen, DueAt: &future,
 	}
 
 	zero := timestamppb.New(time.Time{})
-	resp, err := srv.UpdateBead(ctx, &beadsv1.UpdateBeadRequest{Id: "bd-due1", DueAt: zero})
+	resp, err := srv.UpdateBead(ctx, &beadsv1.UpdateBeadRequest{Id: "kd-due1", DueAt: zero})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -160,14 +160,14 @@ func TestGRPCUpdateBead_ClearDueAt(t *testing.T) {
 
 func TestGRPCUpdateBead_SetDeferUntilPreserved(t *testing.T) {
 	srv, ms, ctx := testCtx(t)
-	ms.beads["bd-def2"] = &model.Bead{
-		ID: "bd-def2", Title: "Will defer", Kind: model.KindIssue, Type: model.TypeTask,
+	ms.beads["kd-def2"] = &model.Bead{
+		ID: "kd-def2", Title: "Will defer", Kind: model.KindIssue, Type: model.TypeTask,
 		Status: model.StatusDeferred,
 	}
 
 	future := time.Now().Add(48 * time.Hour).Truncate(time.Microsecond)
 	ts := timestamppb.New(future)
-	resp, err := srv.UpdateBead(ctx, &beadsv1.UpdateBeadRequest{Id: "bd-def2", DeferUntil: ts})
+	resp, err := srv.UpdateBead(ctx, &beadsv1.UpdateBeadRequest{Id: "kd-def2", DeferUntil: ts})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -182,9 +182,9 @@ func TestGRPCUpdateBead_SetDeferUntilPreserved(t *testing.T) {
 
 func TestGRPCCloseBead_SetsClosedBy(t *testing.T) {
 	srv, ms, ctx := testCtx(t)
-	ms.beads["bd-cb1"] = &model.Bead{ID: "bd-cb1", Title: "Close me", Kind: model.KindIssue, Type: model.TypeTask, Status: model.StatusOpen}
+	ms.beads["kd-cb1"] = &model.Bead{ID: "kd-cb1", Title: "Close me", Kind: model.KindIssue, Type: model.TypeTask, Status: model.StatusOpen}
 
-	resp, err := srv.CloseBead(ctx, &beadsv1.CloseBeadRequest{Id: "bd-cb1", ClosedBy: "alice"})
+	resp, err := srv.CloseBead(ctx, &beadsv1.CloseBeadRequest{Id: "kd-cb1", ClosedBy: "alice"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -192,7 +192,7 @@ func TestGRPCCloseBead_SetsClosedBy(t *testing.T) {
 		t.Fatalf("expected status=closed, got %q", resp.Bead.Status)
 	}
 	// Verify closedBy was stored on the model.
-	stored := ms.beads["bd-cb1"]
+	stored := ms.beads["kd-cb1"]
 	if stored.ClosedBy != "alice" {
 		t.Fatalf("expected stored closedBy=%q, got %q", "alice", stored.ClosedBy)
 	}
@@ -200,9 +200,9 @@ func TestGRPCCloseBead_SetsClosedBy(t *testing.T) {
 
 func TestGRPCCloseBead_EmptyClosedBy(t *testing.T) {
 	srv, ms, ctx := testCtx(t)
-	ms.beads["bd-cb2"] = &model.Bead{ID: "bd-cb2", Title: "Close me", Kind: model.KindIssue, Type: model.TypeTask, Status: model.StatusOpen}
+	ms.beads["kd-cb2"] = &model.Bead{ID: "kd-cb2", Title: "Close me", Kind: model.KindIssue, Type: model.TypeTask, Status: model.StatusOpen}
 
-	resp, err := srv.CloseBead(ctx, &beadsv1.CloseBeadRequest{Id: "bd-cb2"})
+	resp, err := srv.CloseBead(ctx, &beadsv1.CloseBeadRequest{Id: "kd-cb2"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -213,10 +213,10 @@ func TestGRPCCloseBead_EmptyClosedBy(t *testing.T) {
 
 func TestGRPCUpdateBead_LabelsArePersisted(t *testing.T) {
 	srv, ms, ctx := testCtx(t)
-	ms.beads["bd-lrec"] = &model.Bead{ID: "bd-lrec", Title: "Labeled", Kind: model.KindIssue, Type: model.TypeTask, Status: model.StatusOpen}
-	ms.labels["bd-lrec"] = []string{"a", "b"}
+	ms.beads["kd-lrec"] = &model.Bead{ID: "kd-lrec", Title: "Labeled", Kind: model.KindIssue, Type: model.TypeTask, Status: model.StatusOpen}
+	ms.labels["kd-lrec"] = []string{"a", "b"}
 
-	resp, err := srv.UpdateBead(ctx, &beadsv1.UpdateBeadRequest{Id: "bd-lrec", Labels: []string{"b", "c"}})
+	resp, err := srv.UpdateBead(ctx, &beadsv1.UpdateBeadRequest{Id: "kd-lrec", Labels: []string{"b", "c"}})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -224,11 +224,11 @@ func TestGRPCUpdateBead_LabelsArePersisted(t *testing.T) {
 
 	// Check the store has reconciled labels.
 	labelSet := map[string]bool{}
-	for _, l := range ms.labels["bd-lrec"] {
+	for _, l := range ms.labels["kd-lrec"] {
 		labelSet[l] = true
 	}
 	if !labelSet["b"] || !labelSet["c"] || labelSet["a"] {
-		t.Fatalf("expected labels [b, c], got %v", ms.labels["bd-lrec"])
+		t.Fatalf("expected labels [b, c], got %v", ms.labels["kd-lrec"])
 	}
 }
 

@@ -8,8 +8,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/alfredjeanlab/beads/internal/model"
-	"github.com/alfredjeanlab/beads/internal/store"
+	"github.com/groblegark/kbeads/internal/model"
+	"github.com/groblegark/kbeads/internal/store"
 )
 
 // header is the first JSONL record written by ExportJSONL.
