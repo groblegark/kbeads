@@ -4,16 +4,15 @@ import (
 	"testing"
 	"time"
 
-	beadsv1 "github.com/groblegark/kbeads/gen/beads/v1"
-	"google.golang.org/protobuf/types/known/timestamppb"
+	"github.com/groblegark/kbeads/internal/model"
 )
 
 func TestDiffBeads_InitialPoll(t *testing.T) {
 	seen := make(map[string]time.Time)
 	now := time.Now()
-	beads := []*beadsv1.Bead{
-		{Id: "a", UpdatedAt: timestamppb.New(now)},
-		{Id: "b", UpdatedAt: timestamppb.New(now.Add(time.Second))},
+	beads := []*model.Bead{
+		{ID: "a", UpdatedAt: now},
+		{ID: "b", UpdatedAt: now.Add(time.Second)},
 	}
 
 	changed := diffBeads(beads, seen)
@@ -31,9 +30,9 @@ func TestDiffBeads_NoChanges(t *testing.T) {
 		"a": now,
 		"b": now.Add(time.Second),
 	}
-	beads := []*beadsv1.Bead{
-		{Id: "a", UpdatedAt: timestamppb.New(now)},
-		{Id: "b", UpdatedAt: timestamppb.New(now.Add(time.Second))},
+	beads := []*model.Bead{
+		{ID: "a", UpdatedAt: now},
+		{ID: "b", UpdatedAt: now.Add(time.Second)},
 	}
 
 	changed := diffBeads(beads, seen)
@@ -47,17 +46,17 @@ func TestDiffBeads_NewBead(t *testing.T) {
 	seen := map[string]time.Time{
 		"a": now,
 	}
-	beads := []*beadsv1.Bead{
-		{Id: "a", UpdatedAt: timestamppb.New(now)},
-		{Id: "b", UpdatedAt: timestamppb.New(now)},
+	beads := []*model.Bead{
+		{ID: "a", UpdatedAt: now},
+		{ID: "b", UpdatedAt: now},
 	}
 
 	changed := diffBeads(beads, seen)
 	if len(changed) != 1 {
 		t.Fatalf("got %d changed, want 1", len(changed))
 	}
-	if changed[0].GetId() != "b" {
-		t.Errorf("got changed[0].Id=%q, want %q", changed[0].GetId(), "b")
+	if changed[0].ID != "b" {
+		t.Errorf("got changed[0].ID=%q, want %q", changed[0].ID, "b")
 	}
 }
 
@@ -67,17 +66,17 @@ func TestDiffBeads_UpdatedBead(t *testing.T) {
 		"a": now,
 		"b": now,
 	}
-	beads := []*beadsv1.Bead{
-		{Id: "a", UpdatedAt: timestamppb.New(now)},
-		{Id: "b", UpdatedAt: timestamppb.New(now.Add(5 * time.Second))},
+	beads := []*model.Bead{
+		{ID: "a", UpdatedAt: now},
+		{ID: "b", UpdatedAt: now.Add(5 * time.Second)},
 	}
 
 	changed := diffBeads(beads, seen)
 	if len(changed) != 1 {
 		t.Fatalf("got %d changed, want 1", len(changed))
 	}
-	if changed[0].GetId() != "b" {
-		t.Errorf("got changed[0].Id=%q, want %q", changed[0].GetId(), "b")
+	if changed[0].ID != "b" {
+		t.Errorf("got changed[0].ID=%q, want %q", changed[0].ID, "b")
 	}
 	// Verify seen map was updated.
 	if !seen["b"].Equal(now.Add(5 * time.Second)) {
@@ -85,10 +84,10 @@ func TestDiffBeads_UpdatedBead(t *testing.T) {
 	}
 }
 
-func TestDiffBeads_NilUpdatedAt(t *testing.T) {
+func TestDiffBeads_ZeroUpdatedAt(t *testing.T) {
 	seen := make(map[string]time.Time)
-	beads := []*beadsv1.Bead{
-		{Id: "a"}, // nil UpdatedAt
+	beads := []*model.Bead{
+		{ID: "a"}, // zero UpdatedAt
 	}
 
 	changed := diffBeads(beads, seen)
@@ -96,7 +95,7 @@ func TestDiffBeads_NilUpdatedAt(t *testing.T) {
 		t.Fatalf("got %d changed, want 1", len(changed))
 	}
 
-	// Second call with same nil UpdatedAt should not diff.
+	// Second call with same zero UpdatedAt should not diff.
 	changed = diffBeads(beads, seen)
 	if len(changed) != 0 {
 		t.Fatalf("got %d changed on second call, want 0", len(changed))

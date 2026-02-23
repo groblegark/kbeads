@@ -7,7 +7,7 @@ import (
 	"os"
 	"text/tabwriter"
 
-	beadsv1 "github.com/groblegark/kbeads/gen/beads/v1"
+	"github.com/groblegark/kbeads/internal/model"
 	"github.com/spf13/cobra"
 )
 
@@ -26,42 +26,38 @@ as a dedicated RPC.`,
 		parentID := args[0]
 		filterType, _ := cmd.Flags().GetString("type")
 
-		resp, err := client.GetDependencies(context.Background(), &beadsv1.GetDependenciesRequest{
-			BeadId: parentID,
-		})
+		deps, err := beadsClient.GetDependencies(context.Background(), parentID)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 
 		// Filter dependencies by type if specified
-		var deps []*beadsv1.Dependency
-		for _, d := range resp.GetDependencies() {
-			if filterType == "" || d.GetType() == filterType {
-				deps = append(deps, d)
+		var filtered []*model.Dependency
+		for _, d := range deps {
+			if filterType == "" || string(d.Type) == filterType {
+				filtered = append(filtered, d)
 			}
 		}
 
-		if len(deps) == 0 {
+		if len(filtered) == 0 {
 			fmt.Println("No dependencies found.")
 			return nil
 		}
 
 		// Fetch each dependent bead for display
 		type childInfo struct {
-			dep  *beadsv1.Dependency
-			bead *beadsv1.Bead
+			dep  *model.Dependency
+			bead *model.Bead
 		}
 		var children []childInfo
-		for _, d := range deps {
-			beadResp, err := client.GetBead(context.Background(), &beadsv1.GetBeadRequest{
-				Id: d.GetDependsOnId(),
-			})
+		for _, d := range filtered {
+			bead, err := beadsClient.GetBead(context.Background(), d.DependsOnID)
 			if err != nil {
 				children = append(children, childInfo{dep: d, bead: nil})
 				continue
 			}
-			children = append(children, childInfo{dep: d, bead: beadResp.GetBead()})
+			children = append(children, childInfo{dep: d, bead: bead})
 		}
 
 		if jsonOutput {
@@ -75,12 +71,12 @@ as a dedicated RPC.`,
 			var out []jsonChild
 			for _, c := range children {
 				jc := jsonChild{
-					DependsOnID: c.dep.GetDependsOnId(),
-					Type:        c.dep.GetType(),
+					DependsOnID: c.dep.DependsOnID,
+					Type:        string(c.dep.Type),
 				}
 				if c.bead != nil {
-					jc.Status = c.bead.GetStatus()
-					jc.Title = c.bead.GetTitle()
+					jc.Status = string(c.bead.Status)
+					jc.Title = c.bead.Title
 				}
 				out = append(out, jc)
 			}
@@ -97,15 +93,15 @@ as a dedicated RPC.`,
 				status := "(unknown)"
 				title := "(error fetching)"
 				if c.bead != nil {
-					status = c.bead.GetStatus()
-					title = c.bead.GetTitle()
+					status = string(c.bead.Status)
+					title = c.bead.Title
 					if len(title) > 50 {
 						title = title[:47] + "..."
 					}
 				}
 				fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
-					c.dep.GetDependsOnId(),
-					c.dep.GetType(),
+					c.dep.DependsOnID,
+					c.dep.Type,
 					status,
 					title,
 				)

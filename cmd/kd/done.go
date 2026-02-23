@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 
-	beadsv1 "github.com/groblegark/kbeads/gen/beads/v1"
 	"github.com/spf13/cobra"
 )
 
@@ -18,33 +17,26 @@ var doneCmd = &cobra.Command{
 
 		for _, id := range args {
 			if comment != "" {
-				_, err := client.AddComment(context.Background(), &beadsv1.AddCommentRequest{
-					BeadId: id,
-					Author: actor,
-					Text:   comment,
-				})
+				_, err := beadsClient.AddComment(context.Background(), id, actor, comment)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "Error adding comment to %s: %v\n", id, err)
 					os.Exit(1)
 				}
 			}
 
-			resp, err := client.CloseBead(context.Background(), &beadsv1.CloseBeadRequest{
-				Id:       id,
-				ClosedBy: actor,
-			})
+			bead, err := beadsClient.CloseBead(context.Background(), id, actor)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error closing %s: %v\n", id, err)
 				os.Exit(1)
 			}
 
 			if jsonOutput {
-				printBeadJSON(resp.GetBead())
+				printBeadJSON(bead)
 			} else {
 				if len(args) > 1 {
-					fmt.Printf("Done %s\n", resp.GetBead().GetId())
+					fmt.Printf("Done %s\n", bead.ID)
 				} else {
-					printBeadTable(resp.GetBead())
+					printBeadTable(bead)
 				}
 			}
 		}

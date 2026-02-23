@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	beadsv1 "github.com/groblegark/kbeads/gen/beads/v1"
+	"github.com/groblegark/kbeads/internal/model"
 	"github.com/spf13/cobra"
 )
 
@@ -30,16 +30,13 @@ var configCreateCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		resp, err := client.SetConfig(context.Background(), &beadsv1.SetConfigRequest{
-			Key:   key,
-			Value: value,
-		})
+		config, err := beadsClient.SetConfig(context.Background(), key, value)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 
-		printConfigJSON(resp.GetConfig())
+		printConfigJSON(config)
 		return nil
 	},
 }
@@ -49,15 +46,13 @@ var configGetCmd = &cobra.Command{
 	Short: "Get a config by key",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		resp, err := client.GetConfig(context.Background(), &beadsv1.GetConfigRequest{
-			Key: args[0],
-		})
+		config, err := beadsClient.GetConfig(context.Background(), args[0])
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 
-		printConfigJSON(resp.GetConfig())
+		printConfigJSON(config)
 		return nil
 	},
 }
@@ -76,18 +71,16 @@ var configListCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		resp, err := client.ListConfigs(context.Background(), &beadsv1.ListConfigsRequest{
-			Namespace: namespace,
-		})
+		configs, err := beadsClient.ListConfigs(context.Background(), namespace)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 
-		for _, c := range resp.GetConfigs() {
+		for _, c := range configs {
 			printConfigJSON(c)
 		}
-		if len(resp.GetConfigs()) == 0 {
+		if len(configs) == 0 {
 			fmt.Println("No configs found.")
 		}
 		return nil
@@ -99,10 +92,7 @@ var configDeleteCmd = &cobra.Command{
 	Short: "Delete a config by key",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		_, err := client.DeleteConfig(context.Background(), &beadsv1.DeleteConfigRequest{
-			Key: args[0],
-		})
-		if err != nil {
+		if err := beadsClient.DeleteConfig(context.Background(), args[0]); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
@@ -112,20 +102,20 @@ var configDeleteCmd = &cobra.Command{
 	},
 }
 
-func printConfigJSON(c *beadsv1.Config) {
+func printConfigJSON(c *model.Config) {
 	// Pretty-print by unmarshalling the value bytes so they render as JSON, not base64.
 	var valueObj any
-	_ = json.Unmarshal(c.GetValue(), &valueObj)
+	_ = json.Unmarshal(c.Value, &valueObj)
 
 	out := map[string]any{
-		"key":   c.GetKey(),
+		"key":   c.Key,
 		"value": valueObj,
 	}
-	if c.GetCreatedAt() != nil {
-		out["created_at"] = c.GetCreatedAt().AsTime().Format("2006-01-02T15:04:05Z")
+	if !c.CreatedAt.IsZero() {
+		out["created_at"] = c.CreatedAt.Format("2006-01-02T15:04:05Z")
 	}
-	if c.GetUpdatedAt() != nil {
-		out["updated_at"] = c.GetUpdatedAt().AsTime().Format("2006-01-02T15:04:05Z")
+	if !c.UpdatedAt.IsZero() {
+		out["updated_at"] = c.UpdatedAt.Format("2006-01-02T15:04:05Z")
 	}
 
 	data, _ := json.MarshalIndent(out, "", "  ")

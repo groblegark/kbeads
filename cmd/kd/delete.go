@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 
-	beadsv1 "github.com/groblegark/kbeads/gen/beads/v1"
 	"github.com/spf13/cobra"
 )
 
@@ -15,10 +14,7 @@ var deleteCmd = &cobra.Command{
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		for _, id := range args {
-			_, err := client.DeleteBead(context.Background(), &beadsv1.DeleteBeadRequest{
-				Id: id,
-			})
-			if err != nil {
+			if err := beadsClient.DeleteBead(context.Background(), id); err != nil {
 				fmt.Fprintf(os.Stderr, "Error deleting %s: %v\n", id, err)
 				os.Exit(1)
 			}

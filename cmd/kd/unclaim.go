@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	beadsv1 "github.com/groblegark/kbeads/gen/beads/v1"
+	"github.com/groblegark/kbeads/internal/client"
 	"github.com/spf13/cobra"
-	"google.golang.org/protobuf/proto"
 )
 
 var unclaimCmd = &cobra.Command{
@@ -15,11 +14,12 @@ var unclaimCmd = &cobra.Command{
 	Short: "Unclaim one or more beads",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		empty := ""
+		open := "open"
 		for _, id := range args {
-			resp, err := client.UpdateBead(context.Background(), &beadsv1.UpdateBeadRequest{
-				Id:       id,
-				Assignee: proto.String(""),
-				Status:   proto.String("open"),
+			bead, err := beadsClient.UpdateBead(context.Background(), id, &client.UpdateBeadRequest{
+				Assignee: &empty,
+				Status:   &open,
 			})
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error unclaiming %s: %v\n", id, err)
@@ -27,12 +27,12 @@ var unclaimCmd = &cobra.Command{
 			}
 
 			if jsonOutput {
-				printBeadJSON(resp.GetBead())
+				printBeadJSON(bead)
 			} else {
 				if len(args) > 1 {
-					fmt.Printf("Unclaimed %s\n", resp.GetBead().GetId())
+					fmt.Printf("Unclaimed %s\n", bead.ID)
 				} else {
-					printBeadTable(resp.GetBead())
+					printBeadTable(bead)
 				}
 			}
 		}

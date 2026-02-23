@@ -7,7 +7,6 @@ import (
 	"os"
 	"strings"
 
-	beadsv1 "github.com/groblegark/kbeads/gen/beads/v1"
 	"github.com/spf13/cobra"
 )
 
@@ -24,17 +23,12 @@ var commentAddCmd = &cobra.Command{
 		beadID := args[0]
 		text := strings.Join(args[1:], " ")
 
-		resp, err := client.AddComment(context.Background(), &beadsv1.AddCommentRequest{
-			BeadId: beadID,
-			Author: actor,
-			Text:   text,
-		})
+		c, err := beadsClient.AddComment(context.Background(), beadID, actor, text)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 
-		c := resp.GetComment()
 		if jsonOutput {
 			data, err := json.MarshalIndent(c, "", "  ")
 			if err != nil {
@@ -43,12 +37,12 @@ var commentAddCmd = &cobra.Command{
 			}
 			fmt.Println(string(data))
 		} else {
-			fmt.Printf("ID:         %d\n", c.GetId())
-			fmt.Printf("Bead:       %s\n", c.GetBeadId())
-			fmt.Printf("Author:     %s\n", c.GetAuthor())
-			fmt.Printf("Text:       %s\n", c.GetText())
-			if c.GetCreatedAt() != nil {
-				fmt.Printf("Created At: %s\n", c.GetCreatedAt().AsTime().Format("2006-01-02 15:04:05"))
+			fmt.Printf("ID:         %d\n", c.ID)
+			fmt.Printf("Bead:       %s\n", c.BeadID)
+			fmt.Printf("Author:     %s\n", c.Author)
+			fmt.Printf("Text:       %s\n", c.Text)
+			if !c.CreatedAt.IsZero() {
+				fmt.Printf("Created At: %s\n", c.CreatedAt.Format("2006-01-02 15:04:05"))
 			}
 		}
 		return nil
@@ -62,15 +56,12 @@ var commentListCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		beadID := args[0]
 
-		resp, err := client.GetComments(context.Background(), &beadsv1.GetCommentsRequest{
-			BeadId: beadID,
-		})
+		comments, err := beadsClient.GetComments(context.Background(), beadID)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 
-		comments := resp.GetComments()
 		if jsonOutput {
 			data, err := json.MarshalIndent(comments, "", "  ")
 			if err != nil {
@@ -88,10 +79,10 @@ var commentListCmd = &cobra.Command{
 					fmt.Println("---")
 				}
 				createdAt := ""
-				if c.GetCreatedAt() != nil {
-					createdAt = c.GetCreatedAt().AsTime().Format("2006-01-02 15:04:05")
+				if !c.CreatedAt.IsZero() {
+					createdAt = c.CreatedAt.Format("2006-01-02 15:04:05")
 				}
-				fmt.Printf("[%s] %s:\n  %s\n", createdAt, c.GetAuthor(), c.GetText())
+				fmt.Printf("[%s] %s:\n  %s\n", createdAt, c.Author, c.Text)
 			}
 		}
 		return nil

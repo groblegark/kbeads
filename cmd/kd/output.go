@@ -7,10 +7,10 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	beadsv1 "github.com/groblegark/kbeads/gen/beads/v1"
+	"github.com/groblegark/kbeads/internal/model"
 )
 
-func printBeadJSON(bead *beadsv1.Bead) {
+func printBeadJSON(bead *model.Bead) {
 	data, err := json.MarshalIndent(bead, "", "  ")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error marshaling JSON: %v\n", err)
@@ -19,32 +19,32 @@ func printBeadJSON(bead *beadsv1.Bead) {
 	fmt.Println(string(data))
 }
 
-func printBeadTable(bead *beadsv1.Bead) {
-	fmt.Printf("ID:          %s\n", bead.GetId())
-	fmt.Printf("Slug:        %s\n", bead.GetSlug())
-	fmt.Printf("Title:       %s\n", bead.GetTitle())
-	fmt.Printf("Type:        %s\n", bead.GetType())
-	fmt.Printf("Kind:        %s\n", bead.GetKind())
-	fmt.Printf("Status:      %s\n", bead.GetStatus())
-	fmt.Printf("Priority:    %d\n", bead.GetPriority())
-	fmt.Printf("Assignee:    %s\n", bead.GetAssignee())
-	fmt.Printf("Owner:       %s\n", bead.GetOwner())
-	if bead.GetDescription() != "" {
-		fmt.Printf("Description: %s\n", bead.GetDescription())
+func printBeadTable(bead *model.Bead) {
+	fmt.Printf("ID:          %s\n", bead.ID)
+	fmt.Printf("Slug:        %s\n", bead.Slug)
+	fmt.Printf("Title:       %s\n", bead.Title)
+	fmt.Printf("Type:        %s\n", bead.Type)
+	fmt.Printf("Kind:        %s\n", bead.Kind)
+	fmt.Printf("Status:      %s\n", bead.Status)
+	fmt.Printf("Priority:    %d\n", bead.Priority)
+	fmt.Printf("Assignee:    %s\n", bead.Assignee)
+	fmt.Printf("Owner:       %s\n", bead.Owner)
+	if bead.Description != "" {
+		fmt.Printf("Description: %s\n", bead.Description)
 	}
-	if len(bead.GetLabels()) > 0 {
-		fmt.Printf("Labels:      %s\n", strings.Join(bead.GetLabels(), ", "))
+	if len(bead.Labels) > 0 {
+		fmt.Printf("Labels:      %s\n", strings.Join(bead.Labels, ", "))
 	}
-	fmt.Printf("Created By:  %s\n", bead.GetCreatedBy())
-	if bead.GetCreatedAt() != nil {
-		fmt.Printf("Created At:  %s\n", bead.GetCreatedAt().AsTime().Format("2006-01-02 15:04:05"))
+	fmt.Printf("Created By:  %s\n", bead.CreatedBy)
+	if !bead.CreatedAt.IsZero() {
+		fmt.Printf("Created At:  %s\n", bead.CreatedAt.Format("2006-01-02 15:04:05"))
 	}
-	if bead.GetUpdatedAt() != nil {
-		fmt.Printf("Updated At:  %s\n", bead.GetUpdatedAt().AsTime().Format("2006-01-02 15:04:05"))
+	if !bead.UpdatedAt.IsZero() {
+		fmt.Printf("Updated At:  %s\n", bead.UpdatedAt.Format("2006-01-02 15:04:05"))
 	}
 }
 
-func printBeadListJSON(beads []*beadsv1.Bead) {
+func printBeadListJSON(beads []*model.Bead) {
 	data, err := json.MarshalIndent(beads, "", "  ")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error marshaling JSON: %v\n", err)
@@ -53,21 +53,21 @@ func printBeadListJSON(beads []*beadsv1.Bead) {
 	fmt.Println(string(data))
 }
 
-func printBeadListTable(beads []*beadsv1.Bead, total int32) {
+func printBeadListTable(beads []*model.Bead, total int) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, "ID\tSTATUS\tTYPE\tPRIORITY\tTITLE\tASSIGNEE")
 	for _, b := range beads {
-		title := b.GetTitle()
+		title := b.Title
 		if len(title) > 50 {
 			title = title[:47] + "..."
 		}
 		fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\t%s\n",
-			b.GetId(),
-			b.GetStatus(),
-			b.GetType(),
-			b.GetPriority(),
+			b.ID,
+			b.Status,
+			b.Type,
+			b.Priority,
 			title,
-			b.GetAssignee(),
+			b.Assignee,
 		)
 	}
 	w.Flush()

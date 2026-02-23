@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	beadsv1 "github.com/groblegark/kbeads/gen/beads/v1"
+	"github.com/groblegark/kbeads/internal/client"
 	"github.com/spf13/cobra"
 )
 
@@ -19,9 +19,9 @@ var searchCmd = &cobra.Command{
 		status, _ := cmd.Flags().GetStringSlice("status")
 		beadType, _ := cmd.Flags().GetStringSlice("type")
 		kind, _ := cmd.Flags().GetStringSlice("kind")
-		limit, _ := cmd.Flags().GetInt32("limit")
+		limit, _ := cmd.Flags().GetInt("limit")
 
-		req := &beadsv1.ListBeadsRequest{
+		req := &client.ListBeadsRequest{
 			Search: query,
 			Status: status,
 			Type:   beadType,
@@ -29,16 +29,16 @@ var searchCmd = &cobra.Command{
 			Limit:  limit,
 		}
 
-		resp, err := client.ListBeads(context.Background(), req)
+		resp, err := beadsClient.ListBeads(context.Background(), req)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 
 		if jsonOutput {
-			printBeadListJSON(resp.GetBeads())
+			printBeadListJSON(resp.Beads)
 		} else {
-			printBeadListTable(resp.GetBeads(), resp.GetTotal())
+			printBeadListTable(resp.Beads, resp.Total)
 		}
 		return nil
 	},
@@ -48,5 +48,5 @@ func init() {
 	searchCmd.Flags().StringSliceP("status", "s", nil, "filter by status (repeatable)")
 	searchCmd.Flags().StringSliceP("type", "t", nil, "filter by type (repeatable)")
 	searchCmd.Flags().StringSliceP("kind", "k", nil, "filter by kind (repeatable)")
-	searchCmd.Flags().Int32("limit", 20, "maximum number of results")
+	searchCmd.Flags().Int("limit", 20, "maximum number of results")
 }

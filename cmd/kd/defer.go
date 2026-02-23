@@ -6,9 +6,8 @@ import (
 	"os"
 	"time"
 
-	beadsv1 "github.com/groblegark/kbeads/gen/beads/v1"
+	"github.com/groblegark/kbeads/internal/client"
 	"github.com/spf13/cobra"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 var deferCmd = &cobra.Command{
@@ -19,32 +18,31 @@ var deferCmd = &cobra.Command{
 		ctx := context.Background()
 		until, _ := cmd.Flags().GetString("until")
 
-		var deferUntil *timestamppb.Timestamp
+		var deferUntil *time.Time
 		if until != "" {
 			t, err := time.Parse(time.RFC3339, until)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error parsing --until: %v\n", err)
 				os.Exit(1)
 			}
-			deferUntil = timestamppb.New(t)
+			deferUntil = &t
 		}
 
 		statusVal := "deferred"
 		for _, id := range args {
-			req := &beadsv1.UpdateBeadRequest{
-				Id:         id,
+			req := &client.UpdateBeadRequest{
 				Status:     &statusVal,
 				DeferUntil: deferUntil,
 			}
-			resp, err := client.UpdateBead(ctx, req)
+			bead, err := beadsClient.UpdateBead(ctx, id, req)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error deferring %s: %v\n", id, err)
 				os.Exit(1)
 			}
 			if jsonOutput {
-				printBeadJSON(resp.GetBead())
+				printBeadJSON(bead)
 			} else {
-				printBeadTable(resp.GetBead())
+				printBeadTable(bead)
 				if len(args) > 1 {
 					fmt.Println()
 				}
@@ -61,23 +59,22 @@ var undeferCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := context.Background()
 		statusVal := "open"
-		clearDefer := timestamppb.New(time.Time{})
+		clearDefer := time.Time{}
 
 		for _, id := range args {
-			req := &beadsv1.UpdateBeadRequest{
-				Id:         id,
+			req := &client.UpdateBeadRequest{
 				Status:     &statusVal,
-				DeferUntil: clearDefer,
+				DeferUntil: &clearDefer,
 			}
-			resp, err := client.UpdateBead(ctx, req)
+			bead, err := beadsClient.UpdateBead(ctx, id, req)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error undeferring %s: %v\n", id, err)
 				os.Exit(1)
 			}
 			if jsonOutput {
-				printBeadJSON(resp.GetBead())
+				printBeadJSON(bead)
 			} else {
-				printBeadTable(resp.GetBead())
+				printBeadTable(bead)
 				if len(args) > 1 {
 					fmt.Println()
 				}

@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"os"
 
-	beadsv1 "github.com/groblegark/kbeads/gen/beads/v1"
+	"github.com/groblegark/kbeads/internal/client"
 	"github.com/spf13/cobra"
-	"google.golang.org/protobuf/proto"
 )
+
+func strPtr(s string) *string { return &s }
+func intPtr(i int) *int       { return &i }
 
 var updateCmd = &cobra.Command{
 	Use:   "update <id>",
@@ -17,37 +19,35 @@ var updateCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id := args[0]
 
-		req := &beadsv1.UpdateBeadRequest{
-			Id: id,
-		}
+		req := &client.UpdateBeadRequest{}
 
 		if cmd.Flags().Changed("title") {
 			v, _ := cmd.Flags().GetString("title")
-			req.Title = proto.String(v)
+			req.Title = strPtr(v)
 		}
 		if cmd.Flags().Changed("description") {
 			v, _ := cmd.Flags().GetString("description")
-			req.Description = proto.String(v)
+			req.Description = strPtr(v)
 		}
 		if cmd.Flags().Changed("status") {
 			v, _ := cmd.Flags().GetString("status")
-			req.Status = proto.String(v)
+			req.Status = strPtr(v)
 		}
 		if cmd.Flags().Changed("priority") {
-			v, _ := cmd.Flags().GetInt32("priority")
-			req.Priority = proto.Int32(v)
+			v, _ := cmd.Flags().GetInt("priority")
+			req.Priority = intPtr(v)
 		}
 		if cmd.Flags().Changed("assignee") {
 			v, _ := cmd.Flags().GetString("assignee")
-			req.Assignee = proto.String(v)
+			req.Assignee = strPtr(v)
 		}
 		if cmd.Flags().Changed("owner") {
 			v, _ := cmd.Flags().GetString("owner")
-			req.Owner = proto.String(v)
+			req.Owner = strPtr(v)
 		}
 		if cmd.Flags().Changed("notes") {
 			v, _ := cmd.Flags().GetString("notes")
-			req.Notes = proto.String(v)
+			req.Notes = strPtr(v)
 		}
 		if cmd.Flags().Changed("field") {
 			fieldPairs, _ := cmd.Flags().GetStringArray("field")
@@ -58,16 +58,17 @@ var updateCmd = &cobra.Command{
 			}
 			req.Fields = fieldsJSON
 		}
-		resp, err := client.UpdateBead(context.Background(), req)
+
+		bead, err := beadsClient.UpdateBead(context.Background(), id, req)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 
 		if jsonOutput {
-			printBeadJSON(resp.GetBead())
+			printBeadJSON(bead)
 		} else {
-			printBeadTable(resp.GetBead())
+			printBeadTable(bead)
 		}
 		return nil
 	},
@@ -77,7 +78,7 @@ func init() {
 	updateCmd.Flags().String("title", "", "bead title")
 	updateCmd.Flags().StringP("description", "d", "", "bead description")
 	updateCmd.Flags().StringP("status", "s", "", "bead status")
-	updateCmd.Flags().Int32P("priority", "p", 0, "bead priority")
+	updateCmd.Flags().IntP("priority", "p", 0, "bead priority")
 	updateCmd.Flags().String("assignee", "", "assignee")
 	updateCmd.Flags().String("owner", "", "owner")
 	updateCmd.Flags().String("notes", "", "notes")

@@ -8,9 +8,9 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	beadsv1 "github.com/groblegark/kbeads/gen/beads/v1"
+	"github.com/groblegark/kbeads/internal/client"
+	"github.com/groblegark/kbeads/internal/model"
 	"github.com/spf13/cobra"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // contextConfig is the client-side interpretation of a context:{name} config value.
@@ -33,16 +33,14 @@ var contextCmd = &cobra.Command{
 		name := args[0]
 
 		// 1. Fetch the context config.
-		resp, err := client.GetConfig(context.Background(), &beadsv1.GetConfigRequest{
-			Key: "context:" + name,
-		})
+		config, err := beadsClient.GetConfig(context.Background(), "context:"+name)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 
 		var cc contextConfig
-		if err := json.Unmarshal(resp.GetConfig().GetValue(), &cc); err != nil {
+		if err := json.Unmarshal(config.Value, &cc); err != nil {
 			fmt.Fprintf(os.Stderr, "Error parsing context config: %v\n", err)
 			os.Exit(1)
 		}
@@ -58,22 +56,20 @@ var contextCmd = &cobra.Command{
 			}
 
 			// Resolve the named view.
-			viewResp, err := client.GetConfig(context.Background(), &beadsv1.GetConfigRequest{
-				Key: "view:" + section.View,
-			})
+			viewCfg, err := beadsClient.GetConfig(context.Background(), "view:"+section.View)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error loading view %q: %v\n", section.View, err)
 				continue
 			}
 
 			var vc viewConfig
-			if err := json.Unmarshal(viewResp.GetConfig().GetValue(), &vc); err != nil {
+			if err := json.Unmarshal(viewCfg.Value, &vc); err != nil {
 				fmt.Fprintf(os.Stderr, "Error parsing view %q: %v\n", section.View, err)
 				continue
 			}
 
 			// Build and execute the query.
-			req := &beadsv1.ListBeadsRequest{
+			req := &client.ListBeadsRequest{
 				Status:   vc.Filter.Status,
 				Type:     vc.Filter.Type,
 				Kind:     vc.Filter.Kind,
@@ -82,12 +78,10 @@ var contextCmd = &cobra.Command{
 				Search:   vc.Filter.Search,
 				Sort:     vc.Sort,
 				Limit:    vc.Limit,
-			}
-			if vc.Filter.Priority != nil {
-				req.Priority = wrapperspb.Int32(*vc.Filter.Priority)
+				Priority: vc.Filter.Priority,
 			}
 
-			listResp, err := client.ListBeads(context.Background(), req)
+			resp, err := beadsClient.ListBeads(context.Background(), req)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error querying view %q: %v\n", section.View, err)
 				continue
@@ -96,14 +90,14 @@ var contextCmd = &cobra.Command{
 			// Format output.
 			switch section.Format {
 			case "count":
-				fmt.Printf("%d beads\n", listResp.GetTotal())
+				fmt.Printf("%d beads\n", resp.Total)
 			case "list":
-				printSectionList(listResp.GetBeads(), section.Fields)
+				printSectionList(resp.Beads, section.Fields)
 			default: // "table" or empty
 				if len(vc.Columns) > 0 {
-					printBeadListColumns(listResp.GetBeads(), listResp.GetTotal(), vc.Columns)
+					printBeadListColumns(resp.Beads, resp.Total, vc.Columns)
 				} else {
-					printSectionTable(listResp.GetBeads())
+					printSectionTable(resp.Beads)
 				}
 			}
 		}
@@ -112,7 +106,7 @@ var contextCmd = &cobra.Command{
 }
 
 // printSectionList prints beads as bullet points with selected fields.
-func printSectionList(beads []*beadsv1.Bead, fields []string) {
+func printSectionList(beads []*model.Bead, fields []string) {
 	if len(fields) == 0 {
 		fields = []string{"id", "title", "status"}
 	}
@@ -126,21 +120,21 @@ func printSectionList(beads []*beadsv1.Bead, fields []string) {
 }
 
 // printSectionTable prints beads as a compact table (no total footer).
-func printSectionTable(beads []*beadsv1.Bead) {
+func printSectionTable(beads []*model.Bead) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, "ID\tSTATUS\tTYPE\tPRIORITY\tTITLE\tASSIGNEE")
 	for _, b := range beads {
-		title := b.GetTitle()
+		title := b.Title
 		if len(title) > 50 {
 			title = title[:47] + "..."
 		}
 		fmt.Fprintf(w, "%s\t%s\t%s\t%d\t%s\t%s\n",
-			b.GetId(),
-			b.GetStatus(),
-			b.GetType(),
-			b.GetPriority(),
+			b.ID,
+			b.Status,
+			b.Type,
+			b.Priority,
 			title,
-			b.GetAssignee(),
+			b.Assignee,
 		)
 	}
 	w.Flush()

@@ -7,7 +7,7 @@ import (
 	"os"
 	"text/tabwriter"
 
-	beadsv1 "github.com/groblegark/kbeads/gen/beads/v1"
+	"github.com/groblegark/kbeads/internal/client"
 	"github.com/spf13/cobra"
 )
 
@@ -25,9 +25,9 @@ var depAddCmd = &cobra.Command{
 		dependsOnID := args[1]
 		depType, _ := cmd.Flags().GetString("type")
 
-		resp, err := client.AddDependency(context.Background(), &beadsv1.AddDependencyRequest{
-			BeadId:      beadID,
-			DependsOnId: dependsOnID,
+		dep, err := beadsClient.AddDependency(context.Background(), &client.AddDependencyRequest{
+			BeadID:      beadID,
+			DependsOnID: dependsOnID,
 			Type:        depType,
 			CreatedBy:   actor,
 		})
@@ -36,7 +36,6 @@ var depAddCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		dep := resp.GetDependency()
 		if jsonOutput {
 			data, err := json.MarshalIndent(dep, "", "  ")
 			if err != nil {
@@ -45,12 +44,12 @@ var depAddCmd = &cobra.Command{
 			}
 			fmt.Println(string(data))
 		} else {
-			fmt.Printf("Bead:        %s\n", dep.GetBeadId())
-			fmt.Printf("Depends On:  %s\n", dep.GetDependsOnId())
-			fmt.Printf("Type:        %s\n", dep.GetType())
-			fmt.Printf("Created By:  %s\n", dep.GetCreatedBy())
-			if dep.GetCreatedAt() != nil {
-				fmt.Printf("Created At:  %s\n", dep.GetCreatedAt().AsTime().Format("2006-01-02 15:04:05"))
+			fmt.Printf("Bead:        %s\n", dep.BeadID)
+			fmt.Printf("Depends On:  %s\n", dep.DependsOnID)
+			fmt.Printf("Type:        %s\n", dep.Type)
+			fmt.Printf("Created By:  %s\n", dep.CreatedBy)
+			if !dep.CreatedAt.IsZero() {
+				fmt.Printf("Created At:  %s\n", dep.CreatedAt.Format("2006-01-02 15:04:05"))
 			}
 		}
 		return nil
@@ -66,12 +65,7 @@ var depRemoveCmd = &cobra.Command{
 		dependsOnID := args[1]
 		depType, _ := cmd.Flags().GetString("type")
 
-		_, err := client.RemoveDependency(context.Background(), &beadsv1.RemoveDependencyRequest{
-			BeadId:      beadID,
-			DependsOnId: dependsOnID,
-			Type:        depType,
-		})
-		if err != nil {
+		if err := beadsClient.RemoveDependency(context.Background(), beadID, dependsOnID, depType); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
@@ -88,15 +82,12 @@ var depListCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		beadID := args[0]
 
-		resp, err := client.GetDependencies(context.Background(), &beadsv1.GetDependenciesRequest{
-			BeadId: beadID,
-		})
+		deps, err := beadsClient.GetDependencies(context.Background(), beadID)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 
-		deps := resp.GetDependencies()
 		if jsonOutput {
 			data, err := json.MarshalIndent(deps, "", "  ")
 			if err != nil {
@@ -113,13 +104,13 @@ var depListCmd = &cobra.Command{
 			fmt.Fprintln(w, "DEPENDS_ON\tTYPE\tCREATED_BY\tCREATED_AT")
 			for _, d := range deps {
 				createdAt := ""
-				if d.GetCreatedAt() != nil {
-					createdAt = d.GetCreatedAt().AsTime().Format("2006-01-02 15:04:05")
+				if !d.CreatedAt.IsZero() {
+					createdAt = d.CreatedAt.Format("2006-01-02 15:04:05")
 				}
 				fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
-					d.GetDependsOnId(),
-					d.GetType(),
-					d.GetCreatedBy(),
+					d.DependsOnID,
+					d.Type,
+					d.CreatedBy,
 					createdAt,
 				)
 			}

@@ -1,0 +1,114 @@
+// Package client provides a transport-agnostic interface for the kbeads service
+// and an HTTP/JSON implementation that talks to the kbeads REST API.
+package client
+
+import (
+	"context"
+	"encoding/json"
+	"time"
+
+	"github.com/groblegark/kbeads/internal/model"
+)
+
+// BeadsClient is the interface that all kbeads CLI commands use to communicate
+// with the beads server. It is implemented by HTTPClient (default) and can be
+// backed by any transport.
+type BeadsClient interface {
+	// Bead CRUD
+	CreateBead(ctx context.Context, req *CreateBeadRequest) (*model.Bead, error)
+	GetBead(ctx context.Context, id string) (*model.Bead, error)
+	ListBeads(ctx context.Context, req *ListBeadsRequest) (*ListBeadsResponse, error)
+	UpdateBead(ctx context.Context, id string, req *UpdateBeadRequest) (*model.Bead, error)
+	CloseBead(ctx context.Context, id string, closedBy string) (*model.Bead, error)
+	DeleteBead(ctx context.Context, id string) error
+
+	// Dependencies
+	AddDependency(ctx context.Context, req *AddDependencyRequest) (*model.Dependency, error)
+	RemoveDependency(ctx context.Context, beadID, dependsOnID, depType string) error
+	GetDependencies(ctx context.Context, beadID string) ([]*model.Dependency, error)
+
+	// Labels
+	AddLabel(ctx context.Context, beadID, label string) (*model.Bead, error)
+	RemoveLabel(ctx context.Context, beadID, label string) error
+	GetLabels(ctx context.Context, beadID string) ([]string, error)
+
+	// Comments
+	AddComment(ctx context.Context, beadID, author, text string) (*model.Comment, error)
+	GetComments(ctx context.Context, beadID string) ([]*model.Comment, error)
+
+	// Events
+	GetEvents(ctx context.Context, beadID string) ([]*model.Event, error)
+
+	// Config
+	SetConfig(ctx context.Context, key string, value json.RawMessage) (*model.Config, error)
+	GetConfig(ctx context.Context, key string) (*model.Config, error)
+	ListConfigs(ctx context.Context, namespace string) ([]*model.Config, error)
+	DeleteConfig(ctx context.Context, key string) error
+
+	// Health
+	Health(ctx context.Context) (string, error)
+
+	// Lifecycle
+	Close() error
+}
+
+// CreateBeadRequest holds parameters for creating a bead.
+type CreateBeadRequest struct {
+	Title       string          `json:"title"`
+	Kind        string          `json:"kind,omitempty"`
+	Type        string          `json:"type"`
+	Description string          `json:"description,omitempty"`
+	Notes       string          `json:"notes,omitempty"`
+	Priority    int             `json:"priority"`
+	Assignee    string          `json:"assignee,omitempty"`
+	Owner       string          `json:"owner,omitempty"`
+	Labels      []string        `json:"labels,omitempty"`
+	CreatedBy   string          `json:"created_by,omitempty"`
+	Fields      json.RawMessage `json:"fields,omitempty"`
+	DueAt       *time.Time      `json:"due_at,omitempty"`
+	DeferUntil  *time.Time      `json:"defer_until,omitempty"`
+}
+
+// ListBeadsRequest holds parameters for listing beads.
+type ListBeadsRequest struct {
+	Status   []string `json:"status,omitempty"`
+	Type     []string `json:"type,omitempty"`
+	Kind     []string `json:"kind,omitempty"`
+	Labels   []string `json:"labels,omitempty"`
+	Assignee string   `json:"assignee,omitempty"`
+	Search   string   `json:"search,omitempty"`
+	Sort     string   `json:"sort,omitempty"`
+	Priority *int     `json:"priority,omitempty"`
+	Limit    int      `json:"limit,omitempty"`
+	Offset   int      `json:"offset,omitempty"`
+}
+
+// ListBeadsResponse is the response from ListBeads.
+type ListBeadsResponse struct {
+	Beads []*model.Bead `json:"beads"`
+	Total int           `json:"total"`
+}
+
+// UpdateBeadRequest holds optional parameters for updating a bead.
+// Nil pointer fields mean "don't change".
+type UpdateBeadRequest struct {
+	Title       *string         `json:"title,omitempty"`
+	Description *string         `json:"description,omitempty"`
+	Notes       *string         `json:"notes,omitempty"`
+	Status      *string         `json:"status,omitempty"`
+	Priority    *int            `json:"priority,omitempty"`
+	Assignee    *string         `json:"assignee,omitempty"`
+	Owner       *string         `json:"owner,omitempty"`
+	DueAt       *time.Time      `json:"due_at,omitempty"`
+	DeferUntil  *time.Time      `json:"defer_until,omitempty"`
+	Fields      json.RawMessage `json:"fields,omitempty"`
+	Labels      []string        `json:"labels,omitempty"`
+}
+
+// AddDependencyRequest holds parameters for adding a dependency.
+type AddDependencyRequest struct {
+	BeadID      string `json:"bead_id"`
+	DependsOnID string `json:"depends_on_id"`
+	Type        string `json:"type"`
+	CreatedBy   string `json:"created_by,omitempty"`
+}

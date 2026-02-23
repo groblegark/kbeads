@@ -9,11 +9,11 @@ import (
 	"os/signal"
 	"time"
 
-	beadsv1 "github.com/groblegark/kbeads/gen/beads/v1"
+	"github.com/groblegark/kbeads/internal/client"
 	"github.com/groblegark/kbeads/internal/events"
+	"github.com/groblegark/kbeads/internal/model"
 	"github.com/nats-io/nats.go"
 	"github.com/spf13/cobra"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 var watchCmd = &cobra.Command{
@@ -26,22 +26,20 @@ var watchCmd = &cobra.Command{
 		once, _ := cmd.Flags().GetBool("once")
 
 		// 1. Fetch the view config.
-		resp, err := client.GetConfig(context.Background(), &beadsv1.GetConfigRequest{
-			Key: "view:" + name,
-		})
+		config, err := beadsClient.GetConfig(context.Background(), "view:"+name)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 
 		var vc viewConfig
-		if err := json.Unmarshal(resp.GetConfig().GetValue(), &vc); err != nil {
+		if err := json.Unmarshal(config.Value, &vc); err != nil {
 			fmt.Fprintf(os.Stderr, "Error parsing view config: %v\n", err)
 			os.Exit(1)
 		}
 
 		// 2. Build the ListBeads request.
-		req := &beadsv1.ListBeadsRequest{
+		req := &client.ListBeadsRequest{
 			Status:   vc.Filter.Status,
 			Type:     vc.Filter.Type,
 			Kind:     vc.Filter.Kind,
@@ -50,9 +48,7 @@ var watchCmd = &cobra.Command{
 			Search:   vc.Filter.Search,
 			Sort:     vc.Sort,
 			Limit:    vc.Limit,
-		}
-		if vc.Filter.Priority != nil {
-			req.Priority = wrapperspb.Int32(*vc.Filter.Priority)
+			Priority: vc.Filter.Priority,
 		}
 
 		// 3. Setup signal handling.
@@ -79,7 +75,7 @@ var watchCmd = &cobra.Command{
 }
 
 // watchNATS subscribes to NATS events and re-queries on changes with debounce.
-func watchNATS(ctx context.Context, natsURL string, req *beadsv1.ListBeadsRequest, seen map[string]time.Time) error {
+func watchNATS(ctx context.Context, natsURL string, req *client.ListBeadsRequest, seen map[string]time.Time) error {
 	// reconnectCh receives a signal when the NATS client reconnects after
 	// a disconnect, so we can immediately re-query for missed events.
 	reconnectCh := make(chan struct{}, 1)
@@ -135,7 +131,7 @@ func watchNATS(ctx context.Context, natsURL string, req *beadsv1.ListBeadsReques
 }
 
 // watchPoll polls for changes at the given interval.
-func watchPoll(ctx context.Context, interval time.Duration, req *beadsv1.ListBeadsRequest, seen map[string]time.Time) error {
+func watchPoll(ctx context.Context, interval time.Duration, req *client.ListBeadsRequest, seen map[string]time.Time) error {
 	for {
 		select {
 		case <-ctx.Done():
@@ -149,7 +145,7 @@ func watchPoll(ctx context.Context, interval time.Duration, req *beadsv1.ListBea
 }
 
 // queryAndPrint calls ListBeads, diffs against the seen map, and prints any changes.
-func queryAndPrint(ctx context.Context, req *beadsv1.ListBeadsRequest, seen map[string]time.Time) error {
+func queryAndPrint(ctx context.Context, req *client.ListBeadsRequest, seen map[string]time.Time) error {
 	changed, total, err := queryAndDiff(ctx, req, seen)
 	if err != nil {
 		if ctx.Err() != nil {
@@ -170,30 +166,26 @@ func queryAndPrint(ctx context.Context, req *beadsv1.ListBeadsRequest, seen map[
 
 // queryAndDiff calls ListBeads and returns beads that are new or changed since
 // last seen. It updates the seen map in place.
-func queryAndDiff(ctx context.Context, req *beadsv1.ListBeadsRequest, seen map[string]time.Time) ([]*beadsv1.Bead, int32, error) {
-	listResp, err := client.ListBeads(ctx, req)
+func queryAndDiff(ctx context.Context, req *client.ListBeadsRequest, seen map[string]time.Time) ([]*model.Bead, int, error) {
+	resp, err := beadsClient.ListBeads(ctx, req)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	changed := diffBeads(listResp.GetBeads(), seen)
-	return changed, listResp.GetTotal(), nil
+	changed := diffBeads(resp.Beads, seen)
+	return changed, resp.Total, nil
 }
 
 // diffBeads compares beads against the seen map and returns those that are new
 // or have a different updated_at timestamp. It updates seen in place.
-func diffBeads(beads []*beadsv1.Bead, seen map[string]time.Time) []*beadsv1.Bead {
-	var changed []*beadsv1.Bead
+func diffBeads(beads []*model.Bead, seen map[string]time.Time) []*model.Bead {
+	var changed []*model.Bead
 	for _, b := range beads {
-		var updatedAt time.Time
-		if b.GetUpdatedAt() != nil {
-			updatedAt = b.GetUpdatedAt().AsTime()
-		}
-		prev, ok := seen[b.GetId()]
-		if !ok || !updatedAt.Equal(prev) {
+		prev, ok := seen[b.ID]
+		if !ok || !b.UpdatedAt.Equal(prev) {
 			changed = append(changed, b)
 		}
-		seen[b.GetId()] = updatedAt
+		seen[b.ID] = b.UpdatedAt
 	}
 	return changed
 }

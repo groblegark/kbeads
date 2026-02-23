@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	beadsv1 "github.com/groblegark/kbeads/gen/beads/v1"
+	"github.com/groblegark/kbeads/internal/client"
 	"github.com/spf13/cobra"
-	"google.golang.org/protobuf/proto"
 )
 
 var claimCmd = &cobra.Command{
@@ -16,11 +15,11 @@ var claimCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id := args[0]
+		inProgress := "in_progress"
 
-		resp, err := client.UpdateBead(context.Background(), &beadsv1.UpdateBeadRequest{
-			Id:       id,
-			Assignee: proto.String(actor),
-			Status:   proto.String("in_progress"),
+		bead, err := beadsClient.UpdateBead(context.Background(), id, &client.UpdateBeadRequest{
+			Assignee: &actor,
+			Status:   &inProgress,
 		})
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
@@ -28,9 +27,9 @@ var claimCmd = &cobra.Command{
 		}
 
 		if jsonOutput {
-			printBeadJSON(resp.GetBead())
+			printBeadJSON(bead)
 		} else {
-			printBeadTable(resp.GetBead())
+			printBeadTable(bead)
 		}
 		return nil
 	},

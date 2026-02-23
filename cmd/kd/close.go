@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 
-	beadsv1 "github.com/groblegark/kbeads/gen/beads/v1"
 	"github.com/spf13/cobra"
 )
 
@@ -15,22 +14,19 @@ var closeCmd = &cobra.Command{
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		for _, id := range args {
-			resp, err := client.CloseBead(context.Background(), &beadsv1.CloseBeadRequest{
-				Id:       id,
-				ClosedBy: actor,
-			})
+			bead, err := beadsClient.CloseBead(context.Background(), id, actor)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error closing %s: %v\n", id, err)
 				os.Exit(1)
 			}
 
 			if jsonOutput {
-				printBeadJSON(resp.GetBead())
+				printBeadJSON(bead)
 			} else {
 				if len(args) > 1 {
-					fmt.Printf("Closed %s\n", resp.GetBead().GetId())
+					fmt.Printf("Closed %s\n", bead.ID)
 				} else {
-					printBeadTable(resp.GetBead())
+					printBeadTable(bead)
 				}
 			}
 		}

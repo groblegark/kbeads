@@ -5,9 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	beadsv1 "github.com/groblegark/kbeads/gen/beads/v1"
+	"github.com/groblegark/kbeads/internal/client"
 	"github.com/spf13/cobra"
-	"google.golang.org/protobuf/proto"
 )
 
 var reopenCmd = &cobra.Command{
@@ -15,10 +14,10 @@ var reopenCmd = &cobra.Command{
 	Short: "Reopen one or more closed beads",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		open := "open"
 		for _, id := range args {
-			resp, err := client.UpdateBead(context.Background(), &beadsv1.UpdateBeadRequest{
-				Id:     id,
-				Status: proto.String("open"),
+			bead, err := beadsClient.UpdateBead(context.Background(), id, &client.UpdateBeadRequest{
+				Status: &open,
 			})
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error reopening %s: %v\n", id, err)
@@ -26,12 +25,12 @@ var reopenCmd = &cobra.Command{
 			}
 
 			if jsonOutput {
-				printBeadJSON(resp.GetBead())
+				printBeadJSON(bead)
 			} else {
 				if len(args) > 1 {
-					fmt.Printf("Reopened %s\n", resp.GetBead().GetId())
+					fmt.Printf("Reopened %s\n", bead.ID)
 				} else {
-					printBeadTable(resp.GetBead())
+					printBeadTable(bead)
 				}
 			}
 		}

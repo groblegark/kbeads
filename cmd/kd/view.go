@@ -8,9 +8,9 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	beadsv1 "github.com/groblegark/kbeads/gen/beads/v1"
+	"github.com/groblegark/kbeads/internal/client"
+	"github.com/groblegark/kbeads/internal/model"
 	"github.com/spf13/cobra"
-	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // viewConfig is the client-side interpretation of a view:{name} config value.
@@ -18,7 +18,7 @@ type viewConfig struct {
 	Filter  viewFilter `json:"filter"`
 	Sort    string     `json:"sort"`
 	Columns []string   `json:"columns"`
-	Limit   int32      `json:"limit"`
+	Limit   int        `json:"limit"`
 }
 
 type viewFilter struct {
@@ -28,7 +28,7 @@ type viewFilter struct {
 	Labels   []string `json:"labels"`
 	Assignee string   `json:"assignee"`
 	Search   string   `json:"search"`
-	Priority *int32   `json:"priority"`
+	Priority *int     `json:"priority"`
 }
 
 var viewCmd = &cobra.Command{
@@ -37,25 +37,23 @@ var viewCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		name := args[0]
-		limitOverride, _ := cmd.Flags().GetInt32("limit")
+		limitOverride, _ := cmd.Flags().GetInt("limit")
 
 		// 1. Fetch the view config.
-		resp, err := client.GetConfig(context.Background(), &beadsv1.GetConfigRequest{
-			Key: "view:" + name,
-		})
+		config, err := beadsClient.GetConfig(context.Background(), "view:"+name)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 
 		var vc viewConfig
-		if err := json.Unmarshal(resp.GetConfig().GetValue(), &vc); err != nil {
+		if err := json.Unmarshal(config.Value, &vc); err != nil {
 			fmt.Fprintf(os.Stderr, "Error parsing view config: %v\n", err)
 			os.Exit(1)
 		}
 
 		// 2. Build the ListBeads request.
-		req := &beadsv1.ListBeadsRequest{
+		req := &client.ListBeadsRequest{
 			Status:   vc.Filter.Status,
 			Type:     vc.Filter.Type,
 			Kind:     vc.Filter.Kind,
@@ -64,16 +62,14 @@ var viewCmd = &cobra.Command{
 			Search:   vc.Filter.Search,
 			Sort:     vc.Sort,
 			Limit:    vc.Limit,
-		}
-		if vc.Filter.Priority != nil {
-			req.Priority = wrapperspb.Int32(*vc.Filter.Priority)
+			Priority: vc.Filter.Priority,
 		}
 		if limitOverride > 0 {
 			req.Limit = limitOverride
 		}
 
 		// 3. Call ListBeads.
-		listResp, err := client.ListBeads(context.Background(), req)
+		resp, err := beadsClient.ListBeads(context.Background(), req)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
@@ -81,11 +77,11 @@ var viewCmd = &cobra.Command{
 
 		// 4. Display results.
 		if jsonOutput {
-			printBeadListJSON(listResp.GetBeads())
+			printBeadListJSON(resp.Beads)
 		} else if len(vc.Columns) > 0 {
-			printBeadListColumns(listResp.GetBeads(), listResp.GetTotal(), vc.Columns)
+			printBeadListColumns(resp.Beads, resp.Total, vc.Columns)
 		} else {
-			printBeadListTable(listResp.GetBeads(), listResp.GetTotal())
+			printBeadListTable(resp.Beads, resp.Total)
 		}
 		return nil
 	},
@@ -98,7 +94,7 @@ func expandVar(s string) string {
 }
 
 // printBeadListColumns prints beads using a custom set of columns.
-func printBeadListColumns(beads []*beadsv1.Bead, total int32, columns []string) {
+func printBeadListColumns(beads []*model.Bead, total int, columns []string) {
 	tw := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	// Header
 	headers := make([]string, len(columns))
@@ -120,37 +116,37 @@ func printBeadListColumns(beads []*beadsv1.Bead, total int32, columns []string) 
 }
 
 // beadField returns the string value of a bead field by column name.
-func beadField(b *beadsv1.Bead, col string) string {
+func beadField(b *model.Bead, col string) string {
 	switch strings.ToLower(col) {
 	case "id":
-		return b.GetId()
+		return b.ID
 	case "title":
-		title := b.GetTitle()
+		title := b.Title
 		if len(title) > 50 {
 			title = title[:47] + "..."
 		}
 		return title
 	case "status":
-		return b.GetStatus()
+		return string(b.Status)
 	case "type":
-		return b.GetType()
+		return string(b.Type)
 	case "kind":
-		return b.GetKind()
+		return string(b.Kind)
 	case "priority":
-		return fmt.Sprintf("%d", b.GetPriority())
+		return fmt.Sprintf("%d", b.Priority)
 	case "assignee":
-		return b.GetAssignee()
+		return b.Assignee
 	case "owner":
-		return b.GetOwner()
+		return b.Owner
 	case "created_by":
-		return b.GetCreatedBy()
+		return b.CreatedBy
 	case "labels":
-		return strings.Join(b.GetLabels(), ",")
+		return strings.Join(b.Labels, ",")
 	default:
 		return ""
 	}
 }
 
 func init() {
-	viewCmd.Flags().Int32("limit", 0, "override the view's limit")
+	viewCmd.Flags().Int("limit", 0, "override the view's limit")
 }

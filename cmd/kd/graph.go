@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	beadsv1 "github.com/groblegark/kbeads/gen/beads/v1"
+	"github.com/groblegark/kbeads/internal/model"
 	"github.com/spf13/cobra"
 )
 
@@ -18,26 +18,22 @@ var graphCmd = &cobra.Command{
 		depth, _ := cmd.Flags().GetInt("depth")
 
 		// Fetch the root bead
-		resp, err := client.GetBead(context.Background(), &beadsv1.GetBeadRequest{
-			Id: beadID,
-		})
+		bead, err := beadsClient.GetBead(context.Background(), beadID)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 
-		bead := resp.GetBead()
-		fmt.Printf("%s [%s] %s\n", bead.GetId(), bead.GetStatus(), bead.GetTitle())
+		fmt.Printf("%s [%s] %s\n", bead.ID, bead.Status, bead.Title)
 
 		// Get dependencies and print tree
-		deps := bead.GetDependencies()
-		printDepTree(deps, "", depth-1)
+		printDepTree(bead.Dependencies, "", depth-1)
 
 		return nil
 	},
 }
 
-func printDepTree(deps []*beadsv1.Dependency, prefix string, remainingDepth int) {
+func printDepTree(deps []*model.Dependency, prefix string, remainingDepth int) {
 	for i, dep := range deps {
 		isLast := i == len(deps)-1
 
@@ -50,28 +46,24 @@ func printDepTree(deps []*beadsv1.Dependency, prefix string, remainingDepth int)
 		}
 
 		// Fetch the dependent bead to get its title and status
-		depResp, err := client.GetBead(context.Background(), &beadsv1.GetBeadRequest{
-			Id: dep.GetDependsOnId(),
-		})
+		depBead, err := beadsClient.GetBead(context.Background(), dep.DependsOnID)
 		if err != nil {
-			fmt.Printf("%s%s%s: %s (error fetching)\n", prefix, connector, dep.GetType(), dep.GetDependsOnId())
+			fmt.Printf("%s%s%s: %s (error fetching)\n", prefix, connector, dep.Type, dep.DependsOnID)
 			continue
 		}
 
-		depBead := depResp.GetBead()
 		fmt.Printf("%s%s%s: %s [%s] %s\n",
 			prefix, connector,
-			dep.GetType(),
-			depBead.GetId(),
-			depBead.GetStatus(),
-			depBead.GetTitle(),
+			dep.Type,
+			depBead.ID,
+			depBead.Status,
+			depBead.Title,
 		)
 
 		// Recurse if we have remaining depth
 		if remainingDepth > 0 {
-			childDeps := depBead.GetDependencies()
-			if len(childDeps) > 0 {
-				printDepTree(childDeps, childPrefix, remainingDepth-1)
+			if len(depBead.Dependencies) > 0 {
+				printDepTree(depBead.Dependencies, childPrefix, remainingDepth-1)
 			}
 		}
 	}
