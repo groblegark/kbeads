@@ -105,6 +105,7 @@ func init() {
 	rootCmd.AddCommand(contextCmd)
 	rootCmd.AddCommand(adviceCmd)
 	rootCmd.AddCommand(jackCmd)
+	rootCmd.AddCommand(primeCmd)
 }
 
 func main() {
