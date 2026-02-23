@@ -17,6 +17,11 @@ const (
 	TopicLabelAdded        = "beads.label.added"
 	TopicLabelRemoved      = "beads.label.removed"
 	TopicCommentAdded      = "beads.comment.added"
+
+	// Advice events
+	TopicAdviceCreated = "beads.advice.created"
+	TopicAdviceUpdated = "beads.advice.updated"
+	TopicAdviceDeleted = "beads.advice.deleted"
 )
 
 // Event types
@@ -61,6 +66,21 @@ type LabelRemoved struct {
 
 type CommentAdded struct {
 	Comment *model.Comment `json:"comment"`
+}
+
+// Advice events
+
+type AdviceCreated struct {
+	Bead *model.Bead `json:"bead"`
+}
+
+type AdviceUpdated struct {
+	Bead    *model.Bead    `json:"bead"`
+	Changes map[string]any `json:"changes"`
+}
+
+type AdviceDeleted struct {
+	BeadID string `json:"bead_id"`
 }
 
 // Publisher is the interface for emitting events.

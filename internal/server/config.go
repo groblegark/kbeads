@@ -26,6 +26,17 @@ var builtinConfigs = map[string]*model.Config{
 	"type:feature": {Key: "type:feature", Value: json.RawMessage(`{"kind":"issue","fields":[]}`)},
 	"type:chore":   {Key: "type:chore", Value: json.RawMessage(`{"kind":"issue","fields":[]}`)},
 	"type:bug":     {Key: "type:bug", Value: json.RawMessage(`{"kind":"issue","fields":[]}`)},
+	"type:advice": {Key: "type:advice", Value: json.RawMessage(`{
+		"kind": "data",
+		"fields": [
+			{"name": "hook_command",   "type": "string"},
+			{"name": "hook_trigger",   "type": "enum", "values": ["session-end", "before-commit", "before-push", "before-handoff"]},
+			{"name": "hook_timeout",   "type": "integer"},
+			{"name": "hook_on_failure","type": "enum", "values": ["block", "warn", "ignore"]},
+			{"name": "subscriptions",  "type": "string[]"},
+			{"name": "subscriptions_exclude", "type": "string[]"}
+		]
+	}`)},
 }
 
 var builtinConfigsByNamespace = func() map[string][]*model.Config {

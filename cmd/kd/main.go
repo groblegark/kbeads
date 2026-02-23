@@ -103,6 +103,7 @@ func init() {
 	rootCmd.AddCommand(viewCmd)
 	rootCmd.AddCommand(watchCmd)
 	rootCmd.AddCommand(contextCmd)
+	rootCmd.AddCommand(adviceCmd)
 }
 
 func main() {
