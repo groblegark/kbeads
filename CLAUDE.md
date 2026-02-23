@@ -57,7 +57,7 @@ Use short, imperative subject lines. Scope in parentheses when it helps: `fix(st
 When finishing work on this codebase:
 
 1. **Run tests** — `go test ./...` must pass.
-2. **Run quench** — `quench check` must pass (cloc, docs, agents checks are configured).
+2. **Run quench** — `quench check` must pass. Configured checks: cloc (max 1000 LOC), escapes (panic requires `// PANIC:` comment), agents (CLAUDE.md required), docs (TOC + links), tests (Go runner), and git conventional commits.
 3. **Keep generated code in sync** — if you modify `.proto` files under `proto/`, regenerate `gen/` and commit both.
 4. **Follow existing patterns** — the server layer converts between proto and model types via `internal/server/convert.go`; new RPCs should do the same. New CLI commands go in their own file under `cmd/kd/`.
 5. **Record events** — any new mutation must call both `store.RecordEvent` and `publisher.Publish`.
