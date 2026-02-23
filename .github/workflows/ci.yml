@@ -54,8 +54,8 @@ jobs:
         run: quench check
 
   binaries:
-    if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main'
-    needs: [test, lint]
+    if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    needs: [test]
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -117,8 +117,8 @@ jobs:
 
   docker:
     name: Docker (${{ matrix.arch }})
-    if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main'
-    needs: [test, lint]
+    if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    needs: [test]
     runs-on: ${{ matrix.runner }}
     strategy:
       matrix:
@@ -163,7 +163,7 @@ jobs:
 
   manifest:
     name: Manifest
-    if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main'
+    if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     needs: [docker]
     runs-on: ubuntu-latest
     steps:
