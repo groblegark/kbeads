@@ -11,8 +11,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var jackOffCmd = &cobra.Command{
-	Use:   "off <jack-id>",
+var jackDownCmd = &cobra.Command{
+	Use:   "down <jack-id>",
 	Short: "Close a jack (revert and close change permit)",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -87,6 +87,6 @@ var jackOffCmd = &cobra.Command{
 }
 
 func init() {
-	jackOffCmd.Flags().StringP("reason", "r", "", "reason for closing (required)")
-	jackOffCmd.Flags().Bool("skip-revert-check", false, "close without verifying revert")
+	jackDownCmd.Flags().StringP("reason", "r", "", "reason for closing (required)")
+	jackDownCmd.Flags().Bool("skip-revert-check", false, "close without verifying revert")
 }

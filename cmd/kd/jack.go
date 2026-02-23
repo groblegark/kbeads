@@ -9,8 +9,8 @@ var jackCmd = &cobra.Command{
 }
 
 func init() {
-	jackCmd.AddCommand(jackOnCmd)
-	jackCmd.AddCommand(jackOffCmd)
+	jackCmd.AddCommand(jackUpCmd)
+	jackCmd.AddCommand(jackDownCmd)
 	jackCmd.AddCommand(jackListCmd)
 	jackCmd.AddCommand(jackShowCmd)
 	jackCmd.AddCommand(jackExtendCmd)

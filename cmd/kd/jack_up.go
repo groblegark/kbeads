@@ -13,14 +13,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var jackOnCmd = &cobra.Command{
-	Use:   "on <target>",
+var jackUpCmd = &cobra.Command{
+	Use:   "up <target>",
 	Short: "Create a new jack (infrastructure change permit)",
 	Long: `Create a jack BEFORE making infrastructure changes outside CI/CD.
 
 Examples:
-  kd jack on pod/my-app --reason="Debug logging" --revert-plan="Restore config" --ttl=30m
-  kd jack on deployment/api --reason="Emergency failover" --revert-plan="Remove manual label" --priority=0 --labels=jack:failover`,
+  kd jack up pod/my-app --reason="Debug logging" --revert-plan="Restore config" --ttl=30m
+  kd jack up deployment/api --reason="Emergency failover" --revert-plan="Remove manual label" --priority=0 --labels=jack:failover`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		target := args[0]
@@ -138,10 +138,10 @@ Examples:
 }
 
 func init() {
-	jackOnCmd.Flags().StringP("reason", "r", "", "why this change is needed (required)")
-	jackOnCmd.Flags().String("revert-plan", "", "how to undo the change (required)")
-	jackOnCmd.Flags().String("ttl", "1h", "time-to-live duration")
-	jackOnCmd.Flags().String("blocks", "", "bead ID this jack blocks")
-	jackOnCmd.Flags().StringSlice("labels", nil, "labels (repeatable)")
-	jackOnCmd.Flags().IntP("priority", "p", 2, "priority (0-4)")
+	jackUpCmd.Flags().StringP("reason", "r", "", "why this change is needed (required)")
+	jackUpCmd.Flags().String("revert-plan", "", "how to undo the change (required)")
+	jackUpCmd.Flags().String("ttl", "1h", "time-to-live duration")
+	jackUpCmd.Flags().String("blocks", "", "bead ID this jack blocks")
+	jackUpCmd.Flags().StringSlice("labels", nil, "labels (repeatable)")
+	jackUpCmd.Flags().IntP("priority", "p", 2, "priority (0-4)")
 }
