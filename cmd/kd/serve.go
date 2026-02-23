@@ -12,6 +12,7 @@ import (
 
 	"github.com/groblegark/kbeads/internal/config"
 	"github.com/groblegark/kbeads/internal/events"
+	"github.com/groblegark/kbeads/internal/hooks"
 	"github.com/groblegark/kbeads/internal/server"
 	"github.com/groblegark/kbeads/internal/store/postgres"
 	beadsync "github.com/groblegark/kbeads/internal/sync"
@@ -120,6 +121,26 @@ var serveCmd = &cobra.Command{
 			}
 		}
 
+		// Start advice hooks subscriber if NATS is available.
+		var hooksCancel context.CancelFunc
+		if cfg.NATSURL != "" {
+			hooksSub, err := events.NewNATSSubscriber(cfg.NATSURL)
+			if err != nil {
+				logger.Error("failed to create hooks subscriber", "err", err)
+			} else {
+				hooksHandler := hooks.NewHandler(store, logger)
+				var hooksCtx context.Context
+				hooksCtx, hooksCancel = context.WithCancel(context.Background())
+				go func() {
+					if err := hooksHandler.StartSubscriber(hooksCtx, hooksSub); err != nil {
+						logger.Error("hooks subscriber error", "err", err)
+					}
+					hooksSub.Close()
+				}()
+				logger.Info("hooks subscriber started")
+			}
+		}
+
 		// Log startup info.
 		logger.Info("beads server started",
 			"grpc_addr", cfg.GRPCAddr,
@@ -133,6 +154,11 @@ var serveCmd = &cobra.Command{
 		logger.Info("received signal, shutting down", "signal", sig)
 
 		// Graceful shutdown.
+		if hooksCancel != nil {
+			hooksCancel()
+			logger.Info("hooks subscriber stopped")
+		}
+
 		if scheduler != nil {
 			scheduler.Stop()
 			logger.Info("sync scheduler stopped")

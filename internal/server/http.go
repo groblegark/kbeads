@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/groblegark/kbeads/internal/events"
+	"github.com/groblegark/kbeads/internal/hooks"
 	"github.com/groblegark/kbeads/internal/model"
 )
 
@@ -35,6 +36,7 @@ func (s *BeadsServer) NewHTTPHandler() http.Handler {
 	mux.HandleFunc("GET /v1/configs/{key...}", s.handleGetConfig)
 	mux.HandleFunc("GET /v1/configs", s.handleListConfigs)
 	mux.HandleFunc("DELETE /v1/configs/{key...}", s.handleDeleteConfig)
+	mux.HandleFunc("POST /v1/hooks/execute", s.handleExecuteHooks)
 	mux.HandleFunc("GET /v1/events/stream", s.handleEventStream)
 	mux.HandleFunc("GET /v1/health", s.handleHealth)
 	return mux
@@ -620,6 +622,39 @@ func (s *BeadsServer) handleDeleteConfig(w http.ResponseWriter, r *http.Request)
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// executeHooksRequest is the JSON body for POST /v1/hooks/execute.
+type executeHooksRequest struct {
+	AgentID string `json:"agent_id"`
+	Trigger string `json:"trigger"`
+	CWD     string `json:"cwd,omitempty"`
+}
+
+// handleExecuteHooks handles POST /v1/hooks/execute.
+// Agents call this to evaluate advice hooks for a given lifecycle trigger.
+func (s *BeadsServer) handleExecuteHooks(w http.ResponseWriter, r *http.Request) {
+	var req executeHooksRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	if req.AgentID == "" {
+		writeError(w, http.StatusBadRequest, "agent_id is required")
+		return
+	}
+	if req.Trigger == "" {
+		writeError(w, http.StatusBadRequest, "trigger is required")
+		return
+	}
+
+	resp := s.hooksHandler.HandleSessionEvent(r.Context(), hooks.SessionEvent{
+		AgentID: req.AgentID,
+		Trigger: req.Trigger,
+		CWD:     req.CWD,
+	})
+
+	writeJSON(w, http.StatusOK, resp)
 }
 
 // handleHealth handles GET /v1/health.

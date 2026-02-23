@@ -23,8 +23,14 @@ const (
 	TopicAdviceUpdated = "beads.advice.updated"
 	TopicAdviceDeleted = "beads.advice.deleted"
 
+	// Session lifecycle events (emitted by agents, consumed by hooks handler).
+	TopicSessionEnd       = "beads.session.end"
+	TopicSessionPreCommit = "beads.session.pre_commit"
+	TopicSessionPrePush   = "beads.session.pre_push"
+	TopicSessionHandoff   = "beads.session.handoff"
+
 	// Jack events
-	TopicJackOn       = "beads.jack.on"
+	TopicJackOn = "beads.jack.on"
 	TopicJackOff      = "beads.jack.off"
 	TopicJackExtended = "beads.jack.extended"
 	TopicJackExpired  = "beads.jack.expired"
