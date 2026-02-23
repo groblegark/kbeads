@@ -21,10 +21,9 @@ max_lines = 1000        # http_test.go is 935
 max_lines_test = 1000
 max_tokens = 8000
 exclude = [
-  "gen/**",
+  "gen/**",             # protobuf generated code
+  "proto/**",           # protobuf definitions
   "docs/**",
-  "scripts/**",
-  "deploy/**",
 ]
 
 [check.escapes]
@@ -66,7 +65,7 @@ auto = true
 [check.tests.commit]
 check = "warn"
 scope = "branch"
-exclude = ["**/main.go", "gen/**", "docs/**", "scripts/**"]
+exclude = ["**/main.go", "gen/**", "proto/**"]
 
 [[check.tests.suite]]
 runner = "go"

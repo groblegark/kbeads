@@ -35,6 +35,24 @@ jobs:
           version: v1.64.8
           install-mode: goinstall
 
+  quench:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+      - name: Install quench
+        run: cargo install quench --git https://github.com/alfredjeanlab/quench
+      - name: Run quench checks
+        run: quench check
+
   binaries:
     if: startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main'
     needs: [test, lint]
