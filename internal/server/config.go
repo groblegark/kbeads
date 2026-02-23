@@ -37,6 +37,26 @@ var builtinConfigs = map[string]*model.Config{
 			{"name": "subscriptions_exclude", "type": "string[]"}
 		]
 	}`)},
+	"type:jack": {Key: "type:jack", Value: json.RawMessage(`{
+		"kind": "data",
+		"fields": [
+			{"name": "jack_target",          "type": "string",  "required": true},
+			{"name": "jack_reason",          "type": "string",  "required": true},
+			{"name": "jack_revert_plan",     "type": "string",  "required": true},
+			{"name": "jack_ttl",             "type": "string"},
+			{"name": "jack_expires_at",      "type": "string"},
+			{"name": "jack_original_ttl",    "type": "string"},
+			{"name": "jack_extension_count", "type": "integer"},
+			{"name": "jack_cumulative_ttl",  "type": "string"},
+			{"name": "jack_reverted",        "type": "boolean"},
+			{"name": "jack_closed_reason",   "type": "string"},
+			{"name": "jack_closed_at",       "type": "string"},
+			{"name": "jack_escalated",       "type": "boolean"},
+			{"name": "jack_escalated_at",    "type": "string"},
+			{"name": "jack_changes",         "type": "json"},
+			{"name": "jack_rig",             "type": "string"}
+		]
+	}`)},
 }
 
 var builtinConfigsByNamespace = func() map[string][]*model.Config {

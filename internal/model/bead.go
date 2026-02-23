@@ -45,6 +45,7 @@ const (
 // Data-kind types.
 const (
 	TypeAdvice BeadType = "advice"
+	TypeJack   BeadType = "jack"
 )
 
 // String returns the string representation of the bead type.
@@ -64,7 +65,7 @@ func KindFor(t BeadType) Kind {
 	switch t {
 	case TypeEpic, TypeTask, TypeFeature, TypeChore, TypeBug:
 		return KindIssue
-	case TypeAdvice:
+	case TypeAdvice, TypeJack:
 		return KindData
 	default:
 		return ""

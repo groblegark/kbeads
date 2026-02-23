@@ -22,6 +22,12 @@ const (
 	TopicAdviceCreated = "beads.advice.created"
 	TopicAdviceUpdated = "beads.advice.updated"
 	TopicAdviceDeleted = "beads.advice.deleted"
+
+	// Jack events
+	TopicJackOn       = "beads.jack.on"
+	TopicJackOff      = "beads.jack.off"
+	TopicJackExtended = "beads.jack.extended"
+	TopicJackExpired  = "beads.jack.expired"
 )
 
 // Event types
@@ -81,6 +87,27 @@ type AdviceUpdated struct {
 
 type AdviceDeleted struct {
 	BeadID string `json:"bead_id"`
+}
+
+// Jack events
+
+type JackOn struct {
+	Bead *model.Bead `json:"bead"`
+}
+
+type JackOff struct {
+	Bead   *model.Bead `json:"bead"`
+	Reason string      `json:"reason"`
+}
+
+type JackExtended struct {
+	Bead *model.Bead `json:"bead"`
+	TTL  string      `json:"ttl"`
+}
+
+type JackExpired struct {
+	BeadID string `json:"bead_id"`
+	Target string `json:"target"`
 }
 
 // Publisher is the interface for emitting events.

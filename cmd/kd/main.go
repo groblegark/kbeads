@@ -104,6 +104,7 @@ func init() {
 	rootCmd.AddCommand(watchCmd)
 	rootCmd.AddCommand(contextCmd)
 	rootCmd.AddCommand(adviceCmd)
+	rootCmd.AddCommand(jackCmd)
 }
 
 func main() {
