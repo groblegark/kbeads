@@ -117,6 +117,8 @@ func init() {
 	rootCmd.AddCommand(readyCmd)
 	rootCmd.AddCommand(mailCmd)
 	rootCmd.AddCommand(inboxCmd)
+	rootCmd.AddCommand(decisionCmd)
+	rootCmd.AddCommand(yieldCmd)
 }
 
 func main() {
