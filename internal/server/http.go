@@ -1,9 +1,12 @@
 package server
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -36,6 +39,7 @@ func (s *BeadsServer) NewHTTPHandler() http.Handler {
 	mux.HandleFunc("GET /v1/configs/{key...}", s.handleGetConfig)
 	mux.HandleFunc("GET /v1/configs", s.handleListConfigs)
 	mux.HandleFunc("DELETE /v1/configs/{key...}", s.handleDeleteConfig)
+	mux.HandleFunc("GET /v1/graph", s.handleGetGraph)
 	mux.HandleFunc("POST /v1/hooks/execute", s.handleExecuteHooks)
 	mux.HandleFunc("GET /v1/events/stream", s.handleEventStream)
 	mux.HandleFunc("GET /v1/health", s.handleHealth)
@@ -213,12 +217,9 @@ func (s *BeadsServer) handleUpdateBead(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, bead)
 }
 
-// closeBeadRequest is the optional JSON body for POST /v1/beads/{id}/close.
-type closeBeadRequest struct {
-	ClosedBy string `json:"closed_by"`
-}
-
 // handleCloseBead handles POST /v1/beads/{id}/close.
+// Accepts optional JSON body with "closed_by" and any extra fields to merge
+// into the bead's fields before closing (e.g., "chosen", "rationale" for decisions).
 func (s *BeadsServer) handleCloseBead(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
@@ -226,11 +227,27 @@ func (s *BeadsServer) handleCloseBead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req closeBeadRequest
-	// Body is optional; ignore decode errors for empty body.
-	_ = json.NewDecoder(r.Body).Decode(&req)
+	// Decode body as generic map to capture both closed_by and extra fields.
+	var body map[string]any
+	_ = json.NewDecoder(r.Body).Decode(&body)
 
-	bead, err := s.store.CloseBead(r.Context(), id, req.ClosedBy)
+	closedBy, _ := body["closed_by"].(string)
+
+	// Merge extra fields (anything except closed_by) into the bead before closing.
+	extraFields := make(map[string]any)
+	for k, v := range body {
+		if k != "closed_by" {
+			extraFields[k] = v
+		}
+	}
+	if len(extraFields) > 0 {
+		if err := s.mergeBeadFields(r.Context(), id, extraFields); err != nil {
+			// Non-fatal — log and continue with close.
+			slog.Warn("failed to merge close fields", "bead", id, "error", err)
+		}
+	}
+
+	bead, err := s.store.CloseBead(r.Context(), id, closedBy)
 	if errors.Is(err, sql.ErrNoRows) {
 		writeError(w, http.StatusNotFound, "bead not found")
 		return
@@ -244,12 +261,40 @@ func (s *BeadsServer) handleCloseBead(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.recordAndPublish(r.Context(), events.TopicBeadClosed, bead.ID, req.ClosedBy, events.BeadClosed{
+	s.recordAndPublish(r.Context(), events.TopicBeadClosed, bead.ID, closedBy, events.BeadClosed{
 		Bead:     bead,
-		ClosedBy: req.ClosedBy,
+		ClosedBy: closedBy,
 	})
 
 	writeJSON(w, http.StatusOK, bead)
+}
+
+// mergeBeadFields merges extra fields into an existing bead's fields JSON.
+func (s *BeadsServer) mergeBeadFields(ctx context.Context, id string, extra map[string]any) error {
+	bead, err := s.store.GetBead(ctx, id)
+	if err != nil {
+		return fmt.Errorf("get bead: %w", err)
+	}
+
+	// Parse existing fields.
+	existing := make(map[string]any)
+	if len(bead.Fields) > 0 {
+		_ = json.Unmarshal(bead.Fields, &existing)
+	}
+
+	// Merge extra fields.
+	for k, v := range extra {
+		existing[k] = v
+	}
+
+	// Marshal back.
+	merged, err := json.Marshal(existing)
+	if err != nil {
+		return fmt.Errorf("marshal fields: %w", err)
+	}
+	bead.Fields = merged
+
+	return s.store.UpdateBead(ctx, bead)
 }
 
 // handleGetDependencies handles GET /v1/beads/{id}/dependencies.
@@ -622,6 +667,26 @@ func (s *BeadsServer) handleDeleteConfig(w http.ResponseWriter, r *http.Request)
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// handleGetGraph handles GET /v1/graph.
+// Returns all beads as nodes, all dependencies as edges, and aggregate stats
+// for 3D graph visualization.
+func (s *BeadsServer) handleGetGraph(w http.ResponseWriter, r *http.Request) {
+	limit := 500
+	if v := r.URL.Query().Get("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			limit = n
+		}
+	}
+
+	graph, err := s.store.GetGraph(r.Context(), limit)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to get graph")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, graph)
 }
 
 // executeHooksRequest is the JSON body for POST /v1/hooks/execute.
