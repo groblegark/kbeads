@@ -461,6 +461,131 @@ func queryDeleteConfig(ctx context.Context, db executor, key string) error {
 	return nil
 }
 
+func queryGetGraph(ctx context.Context, db executor, limit int) (*model.GraphResponse, error) {
+	if limit <= 0 {
+		limit = 500
+	}
+
+	// Fetch beads with labels in a single pass.
+	beads, _, err := queryListBeads(ctx, db, model.BeadFilter{
+		Limit: limit,
+		Sort:  "-updated_at",
+	})
+	if err != nil {
+		return nil, fmt.Errorf("graph: list beads: %w", err)
+	}
+
+	// Build a set of bead IDs for edge filtering.
+	idSet := make(map[string]struct{}, len(beads))
+	for _, b := range beads {
+		idSet[b.ID] = struct{}{}
+	}
+
+	// Fetch labels for all beads in one query.
+	if len(beads) > 0 {
+		labelRows, err := db.QueryContext(ctx, `SELECT bead_id, label FROM labels`)
+		if err != nil {
+			return nil, fmt.Errorf("graph: fetch labels: %w", err)
+		}
+		defer labelRows.Close()
+
+		labelMap := make(map[string][]string)
+		for labelRows.Next() {
+			var beadID, label string
+			if err := labelRows.Scan(&beadID, &label); err != nil {
+				return nil, fmt.Errorf("graph: scan label: %w", err)
+			}
+			labelMap[beadID] = append(labelMap[beadID], label)
+		}
+		if err := labelRows.Err(); err != nil {
+			return nil, fmt.Errorf("graph: label rows: %w", err)
+		}
+
+		for _, b := range beads {
+			if labels, ok := labelMap[b.ID]; ok {
+				b.Labels = labels
+			}
+		}
+	}
+
+	// Fetch all dependencies in one query (not per-bead N+1).
+	depRows, err := db.QueryContext(ctx, `
+		SELECT bead_id, depends_on_id, type, created_at, created_by, metadata
+		FROM deps`)
+	if err != nil {
+		return nil, fmt.Errorf("graph: fetch deps: %w", err)
+	}
+	defer depRows.Close()
+
+	var edges []*model.GraphEdge
+	depMap := make(map[string][]*model.Dependency)
+	for depRows.Next() {
+		d, err := scanDependency(depRows)
+		if err != nil {
+			return nil, fmt.Errorf("graph: scan dep: %w", err)
+		}
+		depMap[d.BeadID] = append(depMap[d.BeadID], d)
+
+		// Only include edges where both endpoints are in the node set.
+		_, srcOK := idSet[d.BeadID]
+		_, tgtOK := idSet[d.DependsOnID]
+		if srcOK && tgtOK {
+			depType := string(d.Type)
+			if depType == "" {
+				depType = "blocks"
+			}
+			edges = append(edges, &model.GraphEdge{
+				Source: d.BeadID,
+				Target: d.DependsOnID,
+				Type:   depType,
+			})
+		}
+	}
+	if err := depRows.Err(); err != nil {
+		return nil, fmt.Errorf("graph: dep rows: %w", err)
+	}
+
+	// Attach dependencies to beads.
+	for _, b := range beads {
+		if deps, ok := depMap[b.ID]; ok {
+			b.Dependencies = deps
+		}
+	}
+
+	// Compute stats via a single query.
+	stats := &model.GraphStats{}
+	err = db.QueryRowContext(ctx, `
+		SELECT
+			COALESCE(SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN status = 'blocked' THEN 1 ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN status = 'deferred' THEN 1 ELSE 0 END), 0)
+		FROM beads`).Scan(
+		&stats.TotalOpen,
+		&stats.TotalInProgress,
+		&stats.TotalBlocked,
+		&stats.TotalClosed,
+		&stats.TotalDeferred,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("graph: stats: %w", err)
+	}
+
+	if beads == nil {
+		beads = []*model.Bead{}
+	}
+	if edges == nil {
+		edges = []*model.GraphEdge{}
+	}
+
+	return &model.GraphResponse{
+		Nodes: beads,
+		Edges: edges,
+		Stats: stats,
+	}, nil
+}
+
 func parseSortClause(sort string) string {
 	if sort == "" {
 		return "created_at DESC"

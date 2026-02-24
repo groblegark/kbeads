@@ -34,6 +34,9 @@ type Store interface {
 	RecordEvent(ctx context.Context, event *model.Event) error
 	GetEvents(ctx context.Context, beadID string) ([]*model.Event, error)
 
+	// Graph
+	GetGraph(ctx context.Context, limit int) (*model.GraphResponse, error)
+
 	// Configs
 	SetConfig(ctx context.Context, config *model.Config) error
 	GetConfig(ctx context.Context, key string) (*model.Config, error)

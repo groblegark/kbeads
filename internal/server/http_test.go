@@ -155,6 +155,55 @@ func (m *mockStore) DeleteBead(_ context.Context, id string) error {
 	return nil
 }
 
+func (m *mockStore) GetGraph(_ context.Context, limit int) (*model.GraphResponse, error) {
+	beads, total, _ := m.ListBeads(context.Background(), model.BeadFilter{Limit: limit, Sort: "-updated_at"})
+	idSet := make(map[string]struct{}, len(beads))
+	for _, b := range beads {
+		idSet[b.ID] = struct{}{}
+		b.Labels = m.labels[b.ID]
+		b.Dependencies = m.deps[b.ID]
+	}
+	var edges []*model.GraphEdge
+	for _, deps := range m.deps {
+		for _, d := range deps {
+			if _, ok := idSet[d.BeadID]; !ok {
+				continue
+			}
+			if _, ok := idSet[d.DependsOnID]; !ok {
+				continue
+			}
+			depType := string(d.Type)
+			if depType == "" {
+				depType = "blocks"
+			}
+			edges = append(edges, &model.GraphEdge{Source: d.BeadID, Target: d.DependsOnID, Type: depType})
+		}
+	}
+	stats := &model.GraphStats{}
+	for _, b := range m.beads {
+		switch b.Status {
+		case model.StatusOpen:
+			stats.TotalOpen++
+		case model.StatusInProgress:
+			stats.TotalInProgress++
+		case model.StatusBlocked:
+			stats.TotalBlocked++
+		case model.StatusClosed:
+			stats.TotalClosed++
+		case model.StatusDeferred:
+			stats.TotalDeferred++
+		}
+	}
+	if beads == nil {
+		beads = []*model.Bead{}
+	}
+	if edges == nil {
+		edges = []*model.GraphEdge{}
+	}
+	_ = total
+	return &model.GraphResponse{Nodes: beads, Edges: edges, Stats: stats}, nil
+}
+
 func (m *mockStore) AddDependency(_ context.Context, dep *model.Dependency) error {
 	m.deps[dep.BeadID] = append(m.deps[dep.BeadID], dep)
 	return nil
@@ -921,6 +970,64 @@ func TestHandleUpdateBead_ClearLabels(t *testing.T) {
 
 	if len(ms.labels["kd-upd4"]) != 0 {
 		t.Fatalf("expected 0 labels, got %d: %v", len(ms.labels["kd-upd4"]), ms.labels["kd-upd4"])
+	}
+}
+
+func TestHandleGetGraph_Empty(t *testing.T) {
+	_, _, h := newTestServer()
+	rec := doJSON(t, h, "GET", "/v1/graph", nil)
+	requireStatus(t, rec, 200)
+	var result model.GraphResponse
+	decodeJSON(t, rec, &result)
+	if len(result.Nodes) != 0 || len(result.Edges) != 0 {
+		t.Fatalf("expected empty graph, got %d nodes, %d edges", len(result.Nodes), len(result.Edges))
+	}
+	if result.Stats == nil {
+		t.Fatal("expected stats to be non-nil")
+	}
+}
+
+func TestHandleGetGraph_WithData(t *testing.T) {
+	_, ms, h := newTestServer()
+	ms.beads["kd-g1"] = &model.Bead{ID: "kd-g1", Title: "Open bead", Status: model.StatusOpen, Kind: model.KindIssue, Type: model.TypeTask}
+	ms.beads["kd-g2"] = &model.Bead{ID: "kd-g2", Title: "In progress", Status: model.StatusInProgress, Kind: model.KindIssue, Type: model.TypeTask}
+	ms.beads["kd-g3"] = &model.Bead{ID: "kd-g3", Title: "Blocked", Status: model.StatusBlocked, Kind: model.KindIssue, Type: model.TypeBug}
+	ms.deps["kd-g2"] = []*model.Dependency{
+		{BeadID: "kd-g2", DependsOnID: "kd-g1", Type: model.DepBlocks},
+	}
+	ms.labels["kd-g1"] = []string{"urgent"}
+
+	rec := doJSON(t, h, "GET", "/v1/graph", nil)
+	requireStatus(t, rec, 200)
+	var result model.GraphResponse
+	decodeJSON(t, rec, &result)
+
+	if len(result.Nodes) != 3 {
+		t.Fatalf("expected 3 nodes, got %d", len(result.Nodes))
+	}
+	if len(result.Edges) != 1 {
+		t.Fatalf("expected 1 edge, got %d", len(result.Edges))
+	}
+	if result.Stats.TotalOpen != 1 || result.Stats.TotalInProgress != 1 || result.Stats.TotalBlocked != 1 {
+		t.Fatalf("unexpected stats: %+v", result.Stats)
+	}
+}
+
+func TestHandleGetGraph_WithLimit(t *testing.T) {
+	_, ms, h := newTestServer()
+	now := time.Now()
+	ms.beads["kd-gl1"] = &model.Bead{ID: "kd-gl1", Title: "A", Status: model.StatusOpen, UpdatedAt: now}
+	ms.beads["kd-gl2"] = &model.Bead{ID: "kd-gl2", Title: "B", Status: model.StatusOpen, UpdatedAt: now}
+	ms.beads["kd-gl3"] = &model.Bead{ID: "kd-gl3", Title: "C", Status: model.StatusOpen, UpdatedAt: now}
+
+	rec := doJSON(t, h, "GET", "/v1/graph?limit=2", nil)
+	requireStatus(t, rec, 200)
+	var result model.GraphResponse
+	decodeJSON(t, rec, &result)
+	// The mock doesn't enforce limit, but the endpoint should accept the param.
+	// Stats should still count all 3 beads.
+	if result.Stats.TotalOpen != 3 {
+		t.Fatalf("expected total_open=3, got %d", result.Stats.TotalOpen)
 	}
 }
 

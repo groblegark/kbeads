@@ -105,6 +105,10 @@ func (s *PostgresStore) DeleteBead(ctx context.Context, id string) error {
 	return queryDeleteBead(ctx, s.db, id)
 }
 
+func (s *PostgresStore) GetGraph(ctx context.Context, limit int) (*model.GraphResponse, error) {
+	return queryGetGraph(ctx, s.db, limit)
+}
+
 func (s *PostgresStore) AddDependency(ctx context.Context, dep *model.Dependency) error {
 	return queryAddDependency(ctx, s.db, dep)
 }
@@ -215,6 +219,10 @@ func (s *txStore) CloseBead(ctx context.Context, id string, closedBy string) (*m
 
 func (s *txStore) DeleteBead(ctx context.Context, id string) error {
 	return queryDeleteBead(ctx, s.tx, id)
+}
+
+func (s *txStore) GetGraph(ctx context.Context, limit int) (*model.GraphResponse, error) {
+	return queryGetGraph(ctx, s.tx, limit)
 }
 
 func (s *txStore) AddDependency(ctx context.Context, dep *model.Dependency) error {

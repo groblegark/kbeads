@@ -67,6 +67,10 @@ func (m *mockStore) DeleteBead(_ context.Context, id string) error {
 	return nil
 }
 
+func (m *mockStore) GetGraph(_ context.Context, _ int) (*model.GraphResponse, error) {
+	return &model.GraphResponse{Nodes: []*model.Bead{}, Edges: []*model.GraphEdge{}, Stats: &model.GraphStats{}}, nil
+}
+
 func (m *mockStore) AddDependency(_ context.Context, dep *model.Dependency) error {
 	m.deps[dep.BeadID] = append(m.deps[dep.BeadID], dep)
 	return nil

@@ -726,3 +726,63 @@ func TestScanBead_WithOptionalFields(t *testing.T) {
 		t.Fatalf("got fields=%s", bead.Fields)
 	}
 }
+
+func TestQueryGetGraph(t *testing.T) {
+	db, mock := newMockDB(t)
+	now := time.Now().UTC()
+
+	// 1. ListBeads query — returns 2 beads.
+	beadRows := sqlmock.NewRows(beadWithTotalColumns)
+	addBeadWithTotalRow(beadRows, 2, "kd-g1", "issue", "task", "Bead 1", "open", 0, now)
+	addBeadWithTotalRow(beadRows, 2, "kd-g2", "issue", "task", "Bead 2", "in_progress", 1, now)
+	mock.ExpectQuery("SELECT COUNT\\(\\*\\) OVER\\(\\) AS total_count, .+ FROM beads").
+		WillReturnRows(beadRows)
+
+	// 2. Labels query.
+	labelRows := sqlmock.NewRows([]string{"bead_id", "label"}).
+		AddRow("kd-g1", "urgent")
+	mock.ExpectQuery("SELECT bead_id, label FROM labels").WillReturnRows(labelRows)
+
+	// 3. Deps query.
+	depRows := sqlmock.NewRows([]string{"bead_id", "depends_on_id", "type", "created_at", "created_by", "metadata"}).
+		AddRow("kd-g2", "kd-g1", "blocks", now, nil, nil)
+	mock.ExpectQuery("SELECT .+ FROM deps").WillReturnRows(depRows)
+
+	// 4. Stats query.
+	statsRow := sqlmock.NewRows([]string{"open", "in_progress", "blocked", "closed", "deferred"}).
+		AddRow(1, 1, 0, 0, 0)
+	mock.ExpectQuery("SELECT").WillReturnRows(statsRow)
+
+	result, err := queryGetGraph(context.Background(), db, 500)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result.Nodes) != 2 {
+		t.Fatalf("expected 2 nodes, got %d", len(result.Nodes))
+	}
+	if len(result.Edges) != 1 {
+		t.Fatalf("expected 1 edge, got %d", len(result.Edges))
+	}
+	if result.Edges[0].Source != "kd-g2" || result.Edges[0].Target != "kd-g1" || result.Edges[0].Type != "blocks" {
+		t.Fatalf("unexpected edge: %+v", result.Edges[0])
+	}
+	if result.Stats.TotalOpen != 1 || result.Stats.TotalInProgress != 1 {
+		t.Fatalf("unexpected stats: %+v", result.Stats)
+	}
+	// Verify labels were attached.
+	for _, n := range result.Nodes {
+		if n.ID == "kd-g1" {
+			if len(n.Labels) != 1 || n.Labels[0] != "urgent" {
+				t.Fatalf("expected labels=[urgent], got %v", n.Labels)
+			}
+		}
+	}
+	// Verify dependencies were attached.
+	for _, n := range result.Nodes {
+		if n.ID == "kd-g2" {
+			if len(n.Dependencies) != 1 {
+				t.Fatalf("expected 1 dependency on kd-g2, got %d", len(n.Dependencies))
+			}
+		}
+	}
+}
