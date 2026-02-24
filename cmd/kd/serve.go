@@ -13,6 +13,7 @@ import (
 	"github.com/groblegark/kbeads/internal/config"
 	"github.com/groblegark/kbeads/internal/events"
 	"github.com/groblegark/kbeads/internal/hooks"
+	"github.com/groblegark/kbeads/internal/nudge"
 	"github.com/groblegark/kbeads/internal/server"
 	"github.com/groblegark/kbeads/internal/store/postgres"
 	beadsync "github.com/groblegark/kbeads/internal/sync"
@@ -54,8 +55,18 @@ var serveCmd = &cobra.Command{
 			logger.Info("events disabled (BEADS_NATS_URL not set)")
 		}
 
+		// Create nudger for mail delivery (optional; skipped if mux not configured).
+		var n nudge.Nudger
+		if cfg.CoopMuxURL != "" {
+			n = nudge.NewCoopMuxNudger(cfg.CoopMuxURL, cfg.CoopMuxToken)
+			logger.Info("mail nudge enabled", "mux_url", cfg.CoopMuxURL)
+		} else {
+			n = nudge.NoopNudger{}
+			logger.Info("mail nudge disabled (BEADS_COOP_MUX_URL not set)")
+		}
+
 		// Create server components.
-		beadsServer := server.NewBeadsServer(store, publisher)
+		beadsServer := server.NewBeadsServer(store, publisher, n)
 		grpcServer := server.NewGRPCServer(beadsServer)
 
 		// Start gRPC listener.

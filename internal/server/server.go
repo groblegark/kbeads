@@ -10,6 +10,7 @@ import (
 	"github.com/groblegark/kbeads/internal/events"
 	"github.com/groblegark/kbeads/internal/hooks"
 	"github.com/groblegark/kbeads/internal/model"
+	"github.com/groblegark/kbeads/internal/nudge"
 	"github.com/groblegark/kbeads/internal/store"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -22,15 +23,21 @@ type BeadsServer struct {
 	publisher    events.Publisher
 	sseHub       *sseHub
 	hooksHandler *hooks.Handler
+	nudger       nudge.Nudger
 }
 
 // NewBeadsServer returns a new BeadsServer backed by the given store and publisher.
-func NewBeadsServer(s store.Store, p events.Publisher) *BeadsServer {
+// Pass a non-nil nudger to enable real-time mail nudge delivery.
+func NewBeadsServer(s store.Store, p events.Publisher, n nudge.Nudger) *BeadsServer {
+	if n == nil {
+		n = nudge.NoopNudger{}
+	}
 	return &BeadsServer{
 		store:        s,
 		publisher:    p,
 		sseHub:       newSSEHub(),
 		hooksHandler: hooks.NewHandler(s, slog.Default()),
+		nudger:       n,
 	}
 }
 

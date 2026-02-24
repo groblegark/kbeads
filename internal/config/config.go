@@ -12,6 +12,10 @@ type Config struct {
 	HTTPAddr    string // BEADS_HTTP_ADDR (default ":8080")
 	NATSURL     string // BEADS_NATS_URL (optional, empty = no events)
 
+	// Coop mux settings (optional, for mail nudge delivery)
+	CoopMuxURL   string // BEADS_COOP_MUX_URL — coop mux base URL (e.g. http://gasboat-coopmux:9800)
+	CoopMuxToken string // BEADS_COOP_MUX_TOKEN — bearer token for mux API auth
+
 	// Sync settings
 	SyncInterval   time.Duration // BEADS_SYNC_INTERVAL (default 3m; 0 = disabled)
 	SyncS3Bucket   string        // BEADS_SYNC_S3_BUCKET (enables S3 when set)
@@ -29,6 +33,8 @@ func Load() (*Config, error) {
 		GRPCAddr:       envOrDefault("BEADS_GRPC_ADDR", ":9090"),
 		HTTPAddr:       envOrDefault("BEADS_HTTP_ADDR", ":8080"),
 		NATSURL:        os.Getenv("BEADS_NATS_URL"),
+		CoopMuxURL:     os.Getenv("BEADS_COOP_MUX_URL"),
+		CoopMuxToken:   os.Getenv("BEADS_COOP_MUX_TOKEN"),
 		SyncS3Bucket:   os.Getenv("BEADS_SYNC_S3_BUCKET"),
 		SyncS3Endpoint: os.Getenv("BEADS_SYNC_S3_ENDPOINT"),
 		SyncS3Region:   envOrDefault("BEADS_SYNC_S3_REGION", "us-east-1"),

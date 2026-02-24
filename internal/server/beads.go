@@ -112,6 +112,18 @@ func (s *BeadsServer) createBead(ctx context.Context, in createBeadInput) (*mode
 		s.recordAndPublish(ctx, events.TopicAdviceCreated, bead.ID, bead.CreatedBy, events.AdviceCreated{Bead: bead})
 	}
 
+	if bead.Type == model.TypeMail && bead.Assignee != "" {
+		s.recordAndPublish(ctx, events.TopicMailCreated, bead.ID, bead.CreatedBy, events.MailCreated{
+			Bead:      bead,
+			Recipient: bead.Assignee,
+		})
+		msg := fmt.Sprintf("You have new mail from %s: %q (%s)\n\nRun: kd show %s",
+			bead.CreatedBy, bead.Title, bead.ID, bead.ID)
+		if err := s.nudger.Nudge(ctx, bead.Assignee, msg); err != nil {
+			slog.Warn("failed to nudge mail recipient", "bead", bead.ID, "assignee", bead.Assignee, "err", err)
+		}
+	}
+
 	// If a decision bead is created, reset the requesting agent's gate to pending
 	// so the next Stop hook will check again.
 	if bead.Type == model.TypeDecision {

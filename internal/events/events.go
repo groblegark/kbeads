@@ -29,6 +29,9 @@ const (
 	TopicSessionPrePush   = "beads.session.pre_push"
 	TopicSessionHandoff   = "beads.session.handoff"
 
+	// Mail events
+	TopicMailCreated = "beads.mail.created"
+
 	// Jack events
 	TopicJackOn = "beads.jack.on"
 	TopicJackOff      = "beads.jack.off"
@@ -93,6 +96,13 @@ type AdviceUpdated struct {
 
 type AdviceDeleted struct {
 	BeadID string `json:"bead_id"`
+}
+
+// Mail events
+
+type MailCreated struct {
+	Bead      *model.Bead `json:"bead"`
+	Recipient string      `json:"recipient,omitempty"`
 }
 
 // Jack events

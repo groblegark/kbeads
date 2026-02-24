@@ -364,7 +364,7 @@ func (m *mockStore) ListGates(_ context.Context, _ string) ([]model.GateRow, err
 // newTestServer returns a fresh server, its mock store, and an HTTP handler.
 func newTestServer() (*BeadsServer, *mockStore, http.Handler) {
 	ms := newMockStore()
-	s := NewBeadsServer(ms, &events.NoopPublisher{})
+	s := NewBeadsServer(ms, &events.NoopPublisher{}, nil)
 	return s, ms, s.NewHTTPHandler()
 }
 
