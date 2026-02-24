@@ -37,12 +37,22 @@ type Store interface {
 	// Graph
 	GetGraph(ctx context.Context, limit int) (*model.GraphResponse, error)
 
+	// Stats
+	GetStats(ctx context.Context) (*model.GraphStats, error)
+
 	// Configs
 	SetConfig(ctx context.Context, config *model.Config) error
 	GetConfig(ctx context.Context, key string) (*model.Config, error)
 	ListConfigs(ctx context.Context, namespace string) ([]*model.Config, error)
 	ListAllConfigs(ctx context.Context) ([]*model.Config, error)
 	DeleteConfig(ctx context.Context, key string) error
+
+	// Gate operations
+	UpsertGate(ctx context.Context, agentBeadID, gateID, claudeSessionID string) error
+	MarkGateSatisfied(ctx context.Context, agentBeadID, gateID string) error
+	ClearGate(ctx context.Context, agentBeadID, gateID string) error
+	IsGateSatisfied(ctx context.Context, agentBeadID, gateID string) (bool, error)
+	ListGates(ctx context.Context, agentBeadID string) ([]model.GateRow, error)
 
 	// Transaction support
 	RunInTransaction(ctx context.Context, fn func(tx Store) error) error

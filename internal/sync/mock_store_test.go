@@ -71,6 +71,10 @@ func (m *mockStore) GetGraph(_ context.Context, _ int) (*model.GraphResponse, er
 	return &model.GraphResponse{Nodes: []*model.Bead{}, Edges: []*model.GraphEdge{}, Stats: &model.GraphStats{}}, nil
 }
 
+func (m *mockStore) GetStats(_ context.Context) (*model.GraphStats, error) {
+	return &model.GraphStats{}, nil
+}
+
 func (m *mockStore) AddDependency(_ context.Context, dep *model.Dependency) error {
 	m.deps[dep.BeadID] = append(m.deps[dep.BeadID], dep)
 	return nil
@@ -160,4 +164,18 @@ func (m *mockStore) RunInTransaction(_ context.Context, fn func(tx store.Store) 
 
 func (m *mockStore) Close() error {
 	return nil
+}
+
+func (m *mockStore) UpsertGate(_ context.Context, _, _, _ string) error { return nil }
+
+func (m *mockStore) MarkGateSatisfied(_ context.Context, _, _ string) error { return nil }
+
+func (m *mockStore) ClearGate(_ context.Context, _, _ string) error { return nil }
+
+func (m *mockStore) IsGateSatisfied(_ context.Context, _, _ string) (bool, error) {
+	return false, nil
+}
+
+func (m *mockStore) ListGates(_ context.Context, _ string) ([]model.GateRow, error) {
+	return nil, nil
 }

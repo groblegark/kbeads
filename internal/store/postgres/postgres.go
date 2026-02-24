@@ -109,6 +109,10 @@ func (s *PostgresStore) GetGraph(ctx context.Context, limit int) (*model.GraphRe
 	return queryGetGraph(ctx, s.db, limit)
 }
 
+func (s *PostgresStore) GetStats(ctx context.Context) (*model.GraphStats, error) {
+	return queryGetStats(ctx, s.db)
+}
+
 func (s *PostgresStore) AddDependency(ctx context.Context, dep *model.Dependency) error {
 	return queryAddDependency(ctx, s.db, dep)
 }
@@ -223,6 +227,10 @@ func (s *txStore) DeleteBead(ctx context.Context, id string) error {
 
 func (s *txStore) GetGraph(ctx context.Context, limit int) (*model.GraphResponse, error) {
 	return queryGetGraph(ctx, s.tx, limit)
+}
+
+func (s *txStore) GetStats(ctx context.Context) (*model.GraphStats, error) {
+	return queryGetStats(ctx, s.tx)
 }
 
 func (s *txStore) AddDependency(ctx context.Context, dep *model.Dependency) error {

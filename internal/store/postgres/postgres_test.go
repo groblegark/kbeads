@@ -786,3 +786,39 @@ func TestQueryGetGraph(t *testing.T) {
 		}
 	}
 }
+
+func TestQueryGetStats(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+
+	mock.ExpectQuery(`SELECT`).WillReturnRows(
+		sqlmock.NewRows([]string{"open", "in_progress", "blocked", "closed", "deferred"}).
+			AddRow(5, 3, 2, 10, 1),
+	)
+
+	stats, err := queryGetStats(context.Background(), db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.TotalOpen != 5 {
+		t.Fatalf("expected total_open=5, got %d", stats.TotalOpen)
+	}
+	if stats.TotalInProgress != 3 {
+		t.Fatalf("expected total_in_progress=3, got %d", stats.TotalInProgress)
+	}
+	if stats.TotalBlocked != 2 {
+		t.Fatalf("expected total_blocked=2, got %d", stats.TotalBlocked)
+	}
+	if stats.TotalClosed != 10 {
+		t.Fatalf("expected total_closed=10, got %d", stats.TotalClosed)
+	}
+	if stats.TotalDeferred != 1 {
+		t.Fatalf("expected total_deferred=1, got %d", stats.TotalDeferred)
+	}
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatal(err)
+	}
+}

@@ -586,6 +586,28 @@ func queryGetGraph(ctx context.Context, db executor, limit int) (*model.GraphRes
 	}, nil
 }
 
+func queryGetStats(ctx context.Context, db executor) (*model.GraphStats, error) {
+	stats := &model.GraphStats{}
+	err := db.QueryRowContext(ctx, `
+		SELECT
+			COALESCE(SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN status = 'blocked' THEN 1 ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN status = 'deferred' THEN 1 ELSE 0 END), 0)
+		FROM beads`).Scan(
+		&stats.TotalOpen,
+		&stats.TotalInProgress,
+		&stats.TotalBlocked,
+		&stats.TotalClosed,
+		&stats.TotalDeferred,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("stats: %w", err)
+	}
+	return stats, nil
+}
+
 func parseSortClause(sort string) string {
 	if sort == "" {
 		return "created_at DESC"

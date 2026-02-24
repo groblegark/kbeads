@@ -155,6 +155,25 @@ func (m *mockStore) DeleteBead(_ context.Context, id string) error {
 	return nil
 }
 
+func (m *mockStore) GetStats(_ context.Context) (*model.GraphStats, error) {
+	stats := &model.GraphStats{}
+	for _, b := range m.beads {
+		switch b.Status {
+		case model.StatusOpen:
+			stats.TotalOpen++
+		case model.StatusInProgress:
+			stats.TotalInProgress++
+		case model.StatusBlocked:
+			stats.TotalBlocked++
+		case model.StatusClosed:
+			stats.TotalClosed++
+		case model.StatusDeferred:
+			stats.TotalDeferred++
+		}
+	}
+	return stats, nil
+}
+
 func (m *mockStore) GetGraph(_ context.Context, limit int) (*model.GraphResponse, error) {
 	beads, total, _ := m.ListBeads(context.Background(), model.BeadFilter{Limit: limit, Sort: "-updated_at"})
 	idSet := make(map[string]struct{}, len(beads))
@@ -326,6 +345,20 @@ func (m *mockStore) RunInTransaction(_ context.Context, fn func(tx store.Store) 
 
 func (m *mockStore) Close() error {
 	return nil
+}
+
+func (m *mockStore) UpsertGate(_ context.Context, _, _, _ string) error { return nil }
+
+func (m *mockStore) MarkGateSatisfied(_ context.Context, _, _ string) error { return nil }
+
+func (m *mockStore) ClearGate(_ context.Context, _, _ string) error { return nil }
+
+func (m *mockStore) IsGateSatisfied(_ context.Context, _, _ string) (bool, error) {
+	return false, nil
+}
+
+func (m *mockStore) ListGates(_ context.Context, _ string) ([]model.GateRow, error) {
+	return nil, nil
 }
 
 // newTestServer returns a fresh server, its mock store, and an HTTP handler.
@@ -1028,6 +1061,139 @@ func TestHandleGetGraph_WithLimit(t *testing.T) {
 	// Stats should still count all 3 beads.
 	if result.Stats.TotalOpen != 3 {
 		t.Fatalf("expected total_open=3, got %d", result.Stats.TotalOpen)
+	}
+}
+
+func TestHandleGetStats_Empty(t *testing.T) {
+	_, _, h := newTestServer()
+	rec := doJSON(t, h, "GET", "/v1/stats", nil)
+	requireStatus(t, rec, 200)
+
+	var stats model.GraphStats
+	decodeJSON(t, rec, &stats)
+	if stats.TotalOpen != 0 || stats.TotalInProgress != 0 || stats.TotalBlocked != 0 {
+		t.Fatalf("expected all zeros, got %+v", stats)
+	}
+}
+
+func TestHandleGetStats_WithData(t *testing.T) {
+	_, ms, h := newTestServer()
+	ms.beads["kd-s1"] = &model.Bead{ID: "kd-s1", Status: model.StatusOpen}
+	ms.beads["kd-s2"] = &model.Bead{ID: "kd-s2", Status: model.StatusOpen}
+	ms.beads["kd-s3"] = &model.Bead{ID: "kd-s3", Status: model.StatusInProgress}
+	ms.beads["kd-s4"] = &model.Bead{ID: "kd-s4", Status: model.StatusBlocked}
+	ms.beads["kd-s5"] = &model.Bead{ID: "kd-s5", Status: model.StatusClosed}
+
+	rec := doJSON(t, h, "GET", "/v1/stats", nil)
+	requireStatus(t, rec, 200)
+
+	var stats model.GraphStats
+	decodeJSON(t, rec, &stats)
+	if stats.TotalOpen != 2 {
+		t.Fatalf("expected total_open=2, got %d", stats.TotalOpen)
+	}
+	if stats.TotalInProgress != 1 {
+		t.Fatalf("expected total_in_progress=1, got %d", stats.TotalInProgress)
+	}
+	if stats.TotalBlocked != 1 {
+		t.Fatalf("expected total_blocked=1, got %d", stats.TotalBlocked)
+	}
+	if stats.TotalClosed != 1 {
+		t.Fatalf("expected total_closed=1, got %d", stats.TotalClosed)
+	}
+}
+
+func TestHandleGetReady_Empty(t *testing.T) {
+	_, _, h := newTestServer()
+	rec := doJSON(t, h, "GET", "/v1/ready", nil)
+	requireStatus(t, rec, 200)
+
+	var result struct {
+		Beads []*model.Bead `json:"beads"`
+		Total int           `json:"total"`
+	}
+	decodeJSON(t, rec, &result)
+	if len(result.Beads) != 0 {
+		t.Fatalf("expected 0 beads, got %d", len(result.Beads))
+	}
+}
+
+func TestHandleGetReady_FiltersBlockedBeads(t *testing.T) {
+	_, ms, h := newTestServer()
+	now := time.Now()
+	ms.beads["kd-r1"] = &model.Bead{ID: "kd-r1", Title: "Ready", Status: model.StatusOpen, CreatedAt: now, UpdatedAt: now}
+	ms.beads["kd-r2"] = &model.Bead{ID: "kd-r2", Title: "Blocked by r3", Status: model.StatusOpen, CreatedAt: now, UpdatedAt: now}
+	ms.beads["kd-r3"] = &model.Bead{ID: "kd-r3", Title: "Blocker (open)", Status: model.StatusOpen, CreatedAt: now, UpdatedAt: now}
+	// r2 depends on r3 (r3 blocks r2)
+	ms.deps["kd-r2"] = []*model.Dependency{
+		{BeadID: "kd-r2", DependsOnID: "kd-r3", Type: model.DepBlocks},
+	}
+
+	rec := doJSON(t, h, "GET", "/v1/ready", nil)
+	requireStatus(t, rec, 200)
+
+	var result struct {
+		Beads []*model.Bead `json:"beads"`
+		Total int           `json:"total"`
+	}
+	decodeJSON(t, rec, &result)
+	// r2 should be filtered out (blocked by open r3), r1 and r3 should remain
+	if result.Total != 2 {
+		t.Fatalf("expected 2 ready beads, got %d", result.Total)
+	}
+	ids := make(map[string]bool)
+	for _, b := range result.Beads {
+		ids[b.ID] = true
+	}
+	if !ids["kd-r1"] || !ids["kd-r3"] {
+		t.Fatalf("expected kd-r1 and kd-r3, got %v", ids)
+	}
+	if ids["kd-r2"] {
+		t.Fatal("kd-r2 should be filtered out (blocked)")
+	}
+}
+
+func TestHandleGetBlocked_Empty(t *testing.T) {
+	_, _, h := newTestServer()
+	rec := doJSON(t, h, "GET", "/v1/blocked", nil)
+	requireStatus(t, rec, 200)
+
+	var result struct {
+		Beads []*model.Bead `json:"beads"`
+		Total int           `json:"total"`
+	}
+	decodeJSON(t, rec, &result)
+	if len(result.Beads) != 0 {
+		t.Fatalf("expected 0 beads, got %d", len(result.Beads))
+	}
+}
+
+func TestHandleGetBlocked_WithData(t *testing.T) {
+	_, ms, h := newTestServer()
+	now := time.Now()
+	ms.beads["kd-b1"] = &model.Bead{ID: "kd-b1", Title: "Blocked", Status: model.StatusBlocked, CreatedAt: now, UpdatedAt: now}
+	ms.beads["kd-b2"] = &model.Bead{ID: "kd-b2", Title: "Open", Status: model.StatusOpen, CreatedAt: now, UpdatedAt: now}
+	ms.beads["kd-b3"] = &model.Bead{ID: "kd-b3", Title: "Blocker", Status: model.StatusOpen, CreatedAt: now, UpdatedAt: now}
+	ms.deps["kd-b1"] = []*model.Dependency{
+		{BeadID: "kd-b1", DependsOnID: "kd-b3", Type: model.DepBlocks},
+	}
+
+	rec := doJSON(t, h, "GET", "/v1/blocked", nil)
+	requireStatus(t, rec, 200)
+
+	var result struct {
+		Beads []*model.Bead `json:"beads"`
+		Total int           `json:"total"`
+	}
+	decodeJSON(t, rec, &result)
+	if result.Total != 1 {
+		t.Fatalf("expected 1 blocked bead, got %d", result.Total)
+	}
+	if result.Beads[0].ID != "kd-b1" {
+		t.Fatalf("expected kd-b1, got %s", result.Beads[0].ID)
+	}
+	if len(result.Beads[0].Dependencies) != 1 {
+		t.Fatalf("expected 1 dependency, got %d", len(result.Beads[0].Dependencies))
 	}
 }
 
