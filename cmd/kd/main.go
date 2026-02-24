@@ -35,6 +35,14 @@ func defaultHTTPURL() string {
 	if s := os.Getenv("BEADS_HTTP_URL"); s != "" {
 		return s
 	}
+	// BEADS_HTTP_ADDR is set by the gasboat controller in agent pods.
+	// It contains the full daemon URL (e.g., http://host:8080).
+	if s := os.Getenv("BEADS_HTTP_ADDR"); s != "" {
+		if !strings.HasPrefix(s, "http://") && !strings.HasPrefix(s, "https://") {
+			return "http://" + s
+		}
+		return s
+	}
 	return "http://localhost:8080"
 }
 
@@ -106,6 +114,9 @@ func init() {
 	rootCmd.AddCommand(adviceCmd)
 	rootCmd.AddCommand(jackCmd)
 	rootCmd.AddCommand(primeCmd)
+	rootCmd.AddCommand(readyCmd)
+	rootCmd.AddCommand(mailCmd)
+	rootCmd.AddCommand(inboxCmd)
 }
 
 func main() {
