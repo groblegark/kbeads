@@ -45,11 +45,36 @@ type BeadsClient interface {
 	ListConfigs(ctx context.Context, namespace string) ([]*model.Config, error)
 	DeleteConfig(ctx context.Context, key string) error
 
+	// Hooks
+	EmitHook(ctx context.Context, req *EmitHookRequest) (*EmitHookResponse, error)
+
+	// Gates
+	ListGates(ctx context.Context, agentBeadID string) ([]model.GateRow, error)
+	SatisfyGate(ctx context.Context, agentBeadID, gateID string) error
+	ClearGate(ctx context.Context, agentBeadID, gateID string) error
+
 	// Health
 	Health(ctx context.Context) (string, error)
 
 	// Lifecycle
 	Close() error
+}
+
+// EmitHookRequest holds parameters for emitting a hook event.
+type EmitHookRequest struct {
+	AgentBeadID     string `json:"agent_bead_id"`
+	HookType        string `json:"hook_type"`
+	ClaudeSessionID string `json:"claude_session_id,omitempty"`
+	CWD             string `json:"cwd,omitempty"`
+	Actor           string `json:"actor,omitempty"`
+}
+
+// EmitHookResponse is the response from EmitHook.
+type EmitHookResponse struct {
+	Block    bool     `json:"block,omitempty"`
+	Reason   string   `json:"reason,omitempty"`
+	Warnings []string `json:"warnings,omitempty"`
+	Inject   string   `json:"inject,omitempty"`
 }
 
 // CreateBeadRequest holds parameters for creating a bead.

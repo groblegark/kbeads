@@ -245,6 +245,36 @@ func (c *HTTPClient) DeleteConfig(ctx context.Context, key string) error {
 	return c.doJSON(ctx, http.MethodDelete, "/v1/configs/"+key, nil, nil)
 }
 
+// --- Hooks ---
+
+func (c *HTTPClient) EmitHook(ctx context.Context, req *EmitHookRequest) (*EmitHookResponse, error) {
+	var resp EmitHookResponse
+	if err := c.doJSON(ctx, http.MethodPost, "/v1/hooks/emit", req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// --- Gates ---
+
+func (c *HTTPClient) ListGates(ctx context.Context, agentBeadID string) ([]model.GateRow, error) {
+	var gates []model.GateRow
+	if err := c.doJSON(ctx, http.MethodGet, "/v1/agents/"+url.PathEscape(agentBeadID)+"/gates", nil, &gates); err != nil {
+		return nil, err
+	}
+	return gates, nil
+}
+
+func (c *HTTPClient) SatisfyGate(ctx context.Context, agentBeadID, gateID string) error {
+	path := "/v1/agents/" + url.PathEscape(agentBeadID) + "/gates/" + url.PathEscape(gateID) + "/satisfy"
+	return c.doJSON(ctx, http.MethodPost, path, nil, nil)
+}
+
+func (c *HTTPClient) ClearGate(ctx context.Context, agentBeadID, gateID string) error {
+	path := "/v1/agents/" + url.PathEscape(agentBeadID) + "/gates/" + url.PathEscape(gateID)
+	return c.doJSON(ctx, http.MethodDelete, path, nil, nil)
+}
+
 // --- Health ---
 
 func (c *HTTPClient) Health(ctx context.Context) (string, error) {

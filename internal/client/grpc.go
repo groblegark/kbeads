@@ -307,6 +307,28 @@ func (c *GRPCClient) DeleteConfig(ctx context.Context, key string) error {
 	return err
 }
 
+// --- Hooks ---
+
+// EmitHook is not implemented over gRPC (no proto definition exists).
+// Returns an error directing callers to use the HTTP transport.
+func (c *GRPCClient) EmitHook(_ context.Context, _ *EmitHookRequest) (*EmitHookResponse, error) {
+	return nil, fmt.Errorf("EmitHook is not supported over gRPC transport; use --transport=http")
+}
+
+// --- Gates ---
+
+func (c *GRPCClient) ListGates(_ context.Context, _ string) ([]model.GateRow, error) {
+	return nil, fmt.Errorf("not supported over gRPC")
+}
+
+func (c *GRPCClient) SatisfyGate(_ context.Context, _, _ string) error {
+	return fmt.Errorf("not supported over gRPC")
+}
+
+func (c *GRPCClient) ClearGate(_ context.Context, _, _ string) error {
+	return fmt.Errorf("not supported over gRPC")
+}
+
 // --- Health ---
 
 func (c *GRPCClient) Health(ctx context.Context) (string, error) {

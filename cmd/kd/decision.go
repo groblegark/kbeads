@@ -16,6 +16,38 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// resolveAgentBeadID resolves the current agent's bead ID.
+// Priority: KD_AGENT_ID env > KD_ACTOR assignee lookup.
+// Returns empty string if not found.
+func resolveAgentBeadID(ctx context.Context) string {
+	if id := os.Getenv("KD_AGENT_ID"); id != "" {
+		return id
+	}
+	actorName := os.Getenv("KD_ACTOR")
+	if actorName == "" {
+		actorName = actor
+	}
+	return resolveAgentByActor(ctx, actorName, "")
+}
+
+// publishDecisionEvent publishes a NATS event if NATS is configured.
+// Errors are silently ignored — NATS publishing is best-effort.
+func publishDecisionEvent(ctx context.Context, topic string, payload any) {
+	natsURL := os.Getenv("BEADS_NATS_URL")
+	if natsURL == "" {
+		natsURL = os.Getenv("COOP_NATS_URL")
+	}
+	if natsURL == "" {
+		return
+	}
+	pub, err := events.NewNATSPublisher(natsURL)
+	if err != nil {
+		return
+	}
+	defer pub.Close()
+	_ = pub.Publish(ctx, topic, payload)
+}
+
 var decisionCmd = &cobra.Command{
 	Use:   "decision",
 	Short: "Manage decision points",
@@ -57,6 +89,21 @@ var decisionCreateCmd = &cobra.Command{
 		}
 		fields["requested_by"] = requestedBy
 
+		// Resolve the requesting agent bead ID and attach if found.
+		agentID := resolveAgentBeadID(context.Background())
+		if agentID != "" {
+			fields["requesting_agent_bead_id"] = agentID
+		}
+
+		// Count options for NATS event payload.
+		optionsCount := 0
+		if optionsJSON != "" {
+			var opts []any
+			if err := json.Unmarshal([]byte(optionsJSON), &opts); err == nil {
+				optionsCount = len(opts)
+			}
+		}
+
 		fieldsJSON, err := json.Marshal(fields)
 		if err != nil {
 			return fmt.Errorf("encoding fields: %w", err)
@@ -76,6 +123,17 @@ var decisionCreateCmd = &cobra.Command{
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
+
+		// Publish NATS event after successful creation.
+		publishDecisionEvent(context.Background(),
+			fmt.Sprintf("decisions.%s.DecisionCreated", requestedBy),
+			map[string]any{
+				"bead_id":       bead.ID,
+				"prompt":        prompt,
+				"requested_by":  requestedBy,
+				"options_count": optionsCount,
+			},
+		)
 
 		if jsonOutput {
 			printBeadJSON(bead)
@@ -202,6 +260,17 @@ var decisionRespondCmd = &cobra.Command{
 			fmt.Fprintf(os.Stderr, "Error closing decision: %v\n", err)
 			os.Exit(1)
 		}
+
+		// Publish NATS event after successful close.
+		publishDecisionEvent(context.Background(),
+			fmt.Sprintf("decisions.%s.DecisionResponded", actor),
+			map[string]any{
+				"bead_id":       id,
+				"chosen":        selected,
+				"response_text": text,
+				"resolved_by":   actor,
+			},
+		)
 
 		if jsonOutput {
 			printBeadJSON(bead)

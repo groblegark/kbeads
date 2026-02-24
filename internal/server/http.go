@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -44,8 +45,12 @@ func (s *BeadsServer) NewHTTPHandler() http.Handler {
 	mux.HandleFunc("GET /v1/ready", s.handleGetReady)
 	mux.HandleFunc("GET /v1/blocked", s.handleGetBlocked)
 	mux.HandleFunc("POST /v1/hooks/execute", s.handleExecuteHooks)
+	mux.HandleFunc("POST /v1/hooks/emit", s.handleHookEmit)
 	mux.HandleFunc("GET /v1/events/stream", s.handleEventStream)
 	mux.HandleFunc("GET /v1/health", s.handleHealth)
+	mux.HandleFunc("GET /v1/agents/{id}/gates", s.handleListGates)
+	mux.HandleFunc("POST /v1/agents/{id}/gates/{gate_id}/satisfy", s.handleSatisfyGate)
+	mux.HandleFunc("DELETE /v1/agents/{id}/gates/{gate_id}", s.handleClearGate)
 	return mux
 }
 
@@ -796,6 +801,105 @@ func (s *BeadsServer) handleGetBlocked(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// hookEmitRequest is the JSON body for POST /v1/hooks/emit.
+type hookEmitRequest struct {
+	AgentBeadID     string `json:"agent_bead_id"`
+	HookType        string `json:"hook_type"`        // "Stop", "PreToolUse", etc.
+	ClaudeSessionID string `json:"claude_session_id"`
+	CWD             string `json:"cwd"`
+	Actor           string `json:"actor"`
+}
+
+// hookEmitResponse is the JSON response from POST /v1/hooks/emit.
+type hookEmitResponse struct {
+	Block    bool     `json:"block,omitempty"`
+	Reason   string   `json:"reason,omitempty"`
+	Warnings []string `json:"warnings,omitempty"`
+	Inject   string   `json:"inject,omitempty"`
+}
+
+// handleHookEmit handles POST /v1/hooks/emit.
+// It evaluates gate state and soft auto-checks, returning block/warn/inject signals.
+func (s *BeadsServer) handleHookEmit(w http.ResponseWriter, r *http.Request) {
+	var req hookEmitRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+
+	ctx := r.Context()
+	var resp hookEmitResponse
+
+	// If no agent_bead_id, there are no gates to check — allow.
+	if req.AgentBeadID == "" {
+		writeJSON(w, http.StatusOK, resp)
+		return
+	}
+
+	// Evaluate strict gates for Stop hook.
+	if req.HookType == "Stop" {
+		// Upsert the decision gate for this agent (creates pending row if not exists).
+		if err := s.store.UpsertGate(ctx, req.AgentBeadID, "decision", req.ClaudeSessionID); err != nil {
+			slog.Warn("hookEmit: failed to upsert decision gate", "agent", req.AgentBeadID, "err", err)
+		}
+
+		satisfied, err := s.store.IsGateSatisfied(ctx, req.AgentBeadID, "decision")
+		if err != nil {
+			slog.Warn("hookEmit: failed to check decision gate", "agent", req.AgentBeadID, "err", err)
+		}
+		if !satisfied {
+			resp.Block = true
+			resp.Reason = "decision: decision point offered before session end"
+			writeJSON(w, http.StatusOK, resp)
+			return
+		}
+	}
+
+	// Soft gate AutoChecks — always warn, never block.
+	if w := checkCommitPush(req.CWD); w != "" {
+		resp.Warnings = append(resp.Warnings, w)
+	}
+
+	// TODO: bead-update soft check — requires checking KD_HOOK_BEAD env var from the
+	// client side. Skip server-side check for now; the CLI can handle this in future.
+
+	// Run existing advice hook logic for session-end trigger on Stop hook.
+	if req.HookType == "Stop" {
+		agentID := req.AgentBeadID
+		if req.Actor != "" {
+			agentID = req.Actor
+		}
+		hookResp := s.hooksHandler.HandleSessionEvent(ctx, hooks.SessionEvent{
+			AgentID: agentID,
+			Trigger: hooks.TriggerSessionEnd,
+			CWD:     req.CWD,
+		})
+		if hookResp.Block && !resp.Block {
+			resp.Block = true
+			resp.Reason = hookResp.Reason
+		}
+		resp.Warnings = append(resp.Warnings, hookResp.Warnings...)
+	}
+
+	writeJSON(w, http.StatusOK, resp)
+}
+
+// checkCommitPush runs git status --porcelain in cwd.
+// Returns a warning string if there are uncommitted changes, empty string otherwise.
+func checkCommitPush(cwd string) string {
+	if cwd == "" {
+		return ""
+	}
+	out, err := exec.Command("git", "-C", cwd, "status", "--porcelain").Output()
+	if err != nil {
+		return ""
+	}
+	if len(strings.TrimSpace(string(out))) > 0 {
+		return "you have uncommitted changes — run git add/commit/push"
+	}
+	return ""
+}
+
 // executeHooksRequest is the JSON body for POST /v1/hooks/execute.
 type executeHooksRequest struct {
 	AgentID string `json:"agent_id"`
@@ -827,6 +931,62 @@ func (s *BeadsServer) handleExecuteHooks(w http.ResponseWriter, r *http.Request)
 	})
 
 	writeJSON(w, http.StatusOK, resp)
+}
+
+// handleListGates handles GET /v1/agents/{id}/gates.
+// Returns all gate rows for an agent bead.
+func (s *BeadsServer) handleListGates(w http.ResponseWriter, r *http.Request) {
+	agentID := r.PathValue("id")
+	if agentID == "" {
+		writeError(w, http.StatusBadRequest, "id is required")
+		return
+	}
+	gates, err := s.store.ListGates(r.Context(), agentID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if gates == nil {
+		gates = []model.GateRow{}
+	}
+	writeJSON(w, http.StatusOK, gates)
+}
+
+// handleSatisfyGate handles POST /v1/agents/{id}/gates/{gate_id}/satisfy.
+// Manually satisfies a gate for an agent bead.
+func (s *BeadsServer) handleSatisfyGate(w http.ResponseWriter, r *http.Request) {
+	agentID := r.PathValue("id")
+	gateID := r.PathValue("gate_id")
+	if agentID == "" || gateID == "" {
+		writeError(w, http.StatusBadRequest, "id and gate_id are required")
+		return
+	}
+	// Upsert first to ensure row exists.
+	if err := s.store.UpsertGate(r.Context(), agentID, gateID, ""); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if err := s.store.MarkGateSatisfied(r.Context(), agentID, gateID); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "satisfied"})
+}
+
+// handleClearGate handles DELETE /v1/agents/{id}/gates/{gate_id}.
+// Resets a gate back to pending status.
+func (s *BeadsServer) handleClearGate(w http.ResponseWriter, r *http.Request) {
+	agentID := r.PathValue("id")
+	gateID := r.PathValue("gate_id")
+	if agentID == "" || gateID == "" {
+		writeError(w, http.StatusBadRequest, "id and gate_id are required")
+		return
+	}
+	if err := s.store.ClearGate(r.Context(), agentID, gateID); err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "pending"})
 }
 
 // handleHealth handles GET /v1/health.

@@ -44,8 +44,9 @@ const (
 
 // Data-kind types.
 const (
-	TypeAdvice BeadType = "advice"
-	TypeJack   BeadType = "jack"
+	TypeAdvice   BeadType = "advice"
+	TypeJack     BeadType = "jack"
+	TypeDecision BeadType = "decision"
 )
 
 // String returns the string representation of the bead type.
