@@ -130,4 +130,7 @@ tasks:
       cargo install quench --git https://github.com/alfredjeanlab/quench
 
       echo "Running quench checks..."
-      quench check
+      # docs.toc false-positives in RWX: the kbeads/ prefix in CLAUDE.md
+      # directory tree resolves locally but not when cloned to a different
+      # path. docs is warn-level in quench.toml so skip it here.
+      quench check --no-docs
