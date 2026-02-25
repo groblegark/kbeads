@@ -41,9 +41,8 @@ tasks:
     filter:
       - .rwx/ci.yml
     run: |
-      mkdir -p $(go env GOPATH)/bin
-      curl -fsSL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh \
-        | sh -s -- -b $(go env GOPATH)/bin v1.64.8
+      echo "Building golangci-lint from source (needs Go 1.25 for go1.25 target)..."
+      go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
 
   # ── Download modules (cached by lockfiles) ──────────────────────────────
   - key: go-deps
