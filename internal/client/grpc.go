@@ -19,9 +19,25 @@ type GRPCClient struct {
 	client beadsv1.BeadsServiceClient
 }
 
+// tokenCredentials implements grpc.PerRPCCredentials to inject a Bearer token.
+type tokenCredentials struct {
+	token string
+}
+
+func (t tokenCredentials) GetRequestMetadata(_ context.Context, _ ...string) (map[string]string, error) {
+	return map[string]string{"authorization": "Bearer " + t.token}, nil
+}
+
+func (t tokenCredentials) RequireTransportSecurity() bool { return false }
+
 // NewGRPCClient connects to the given gRPC address and returns a client.
-func NewGRPCClient(addr string) (*GRPCClient, error) {
-	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+// When token is non-empty, per-RPC credentials are attached.
+func NewGRPCClient(addr, token string) (*GRPCClient, error) {
+	opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+	if token != "" {
+		opts = append(opts, grpc.WithPerRPCCredentials(tokenCredentials{token: token}))
+	}
+	conn, err := grpc.NewClient(addr, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("grpc dial: %w", err)
 	}

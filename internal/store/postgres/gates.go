@@ -8,16 +8,14 @@ import (
 	"github.com/groblegark/kbeads/internal/model"
 )
 
-// UpsertGate inserts a new gate row or updates the claude_session_id if the
-// gate is still pending. A satisfied gate is never overwritten.
-func (s *PostgresStore) UpsertGate(ctx context.Context, agentBeadID, gateID, claudeSessionID string) error {
+// UpsertGate ensures a gate row exists in pending state.
+// Uses INSERT...ON CONFLICT DO NOTHING so existing state is never reset.
+func (s *PostgresStore) UpsertGate(ctx context.Context, agentBeadID, gateID string) error {
 	_, err := s.db.ExecContext(ctx, `
-		INSERT INTO session_gates (agent_bead_id, gate_id, claude_session_id)
-		VALUES ($1, $2, $3)
-		ON CONFLICT (agent_bead_id, gate_id) DO UPDATE
-			SET claude_session_id = EXCLUDED.claude_session_id
-			WHERE session_gates.status = 'pending'`,
-		agentBeadID, gateID, claudeSessionID,
+		INSERT INTO session_gates (agent_bead_id, gate_id)
+		VALUES ($1, $2)
+		ON CONFLICT (agent_bead_id, gate_id) DO NOTHING`,
+		agentBeadID, gateID,
 	)
 	return err
 }
@@ -65,7 +63,7 @@ func (s *PostgresStore) IsGateSatisfied(ctx context.Context, agentBeadID, gateID
 // ListGates returns all gate rows for an agent bead, ordered by gate_id.
 func (s *PostgresStore) ListGates(ctx context.Context, agentBeadID string) ([]model.GateRow, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT agent_bead_id, gate_id, status, satisfied_at, claude_session_id
+		SELECT agent_bead_id, gate_id, status, satisfied_at
 		FROM session_gates
 		WHERE agent_bead_id = $1
 		ORDER BY gate_id`,
@@ -80,21 +78,16 @@ func (s *PostgresStore) ListGates(ctx context.Context, agentBeadID string) ([]mo
 	for rows.Next() {
 		var g model.GateRow
 		var satisfiedAt sql.NullTime
-		var claudeSessionID sql.NullString
 		if err := rows.Scan(
 			&g.AgentBeadID,
 			&g.GateID,
 			&g.Status,
 			&satisfiedAt,
-			&claudeSessionID,
 		); err != nil {
 			return nil, err
 		}
 		if satisfiedAt.Valid {
 			g.SatisfiedAt = &satisfiedAt.Time
-		}
-		if claudeSessionID.Valid {
-			g.ClaudeSessionID = claudeSessionID.String
 		}
 		gates = append(gates, g)
 	}
@@ -106,14 +99,12 @@ func (s *PostgresStore) ListGates(ctx context.Context, agentBeadID string) ([]mo
 
 // The txStore gate methods delegate to the same query functions via the transaction executor.
 
-func (s *txStore) UpsertGate(ctx context.Context, agentBeadID, gateID, claudeSessionID string) error {
+func (s *txStore) UpsertGate(ctx context.Context, agentBeadID, gateID string) error {
 	_, err := s.tx.ExecContext(ctx, `
-		INSERT INTO session_gates (agent_bead_id, gate_id, claude_session_id)
-		VALUES ($1, $2, $3)
-		ON CONFLICT (agent_bead_id, gate_id) DO UPDATE
-			SET claude_session_id = EXCLUDED.claude_session_id
-			WHERE session_gates.status = 'pending'`,
-		agentBeadID, gateID, claudeSessionID,
+		INSERT INTO session_gates (agent_bead_id, gate_id)
+		VALUES ($1, $2)
+		ON CONFLICT (agent_bead_id, gate_id) DO NOTHING`,
+		agentBeadID, gateID,
 	)
 	return err
 }
@@ -156,7 +147,7 @@ func (s *txStore) IsGateSatisfied(ctx context.Context, agentBeadID, gateID strin
 
 func (s *txStore) ListGates(ctx context.Context, agentBeadID string) ([]model.GateRow, error) {
 	rows, err := s.tx.QueryContext(ctx, `
-		SELECT agent_bead_id, gate_id, status, satisfied_at, claude_session_id
+		SELECT agent_bead_id, gate_id, status, satisfied_at
 		FROM session_gates
 		WHERE agent_bead_id = $1
 		ORDER BY gate_id`,
@@ -171,21 +162,16 @@ func (s *txStore) ListGates(ctx context.Context, agentBeadID string) ([]model.Ga
 	for rows.Next() {
 		var g model.GateRow
 		var satisfiedAt sql.NullTime
-		var claudeSessionID sql.NullString
 		if err := rows.Scan(
 			&g.AgentBeadID,
 			&g.GateID,
 			&g.Status,
 			&satisfiedAt,
-			&claudeSessionID,
 		); err != nil {
 			return nil, err
 		}
 		if satisfiedAt.Valid {
 			g.SatisfiedAt = &satisfiedAt.Time
-		}
-		if claudeSessionID.Valid {
-			g.ClaudeSessionID = claudeSessionID.String
 		}
 		gates = append(gates, g)
 	}

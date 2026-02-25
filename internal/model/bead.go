@@ -47,6 +47,7 @@ const (
 	TypeAdvice   BeadType = "advice"
 	TypeJack     BeadType = "jack"
 	TypeDecision BeadType = "decision"
+	TypeReport   BeadType = "report"
 )
 
 // String returns the string representation of the bead type.

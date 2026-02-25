@@ -58,7 +58,7 @@ var serveCmd = &cobra.Command{
 
 		// Create server components.
 		beadsServer := server.NewBeadsServer(store, publisher)
-		grpcServer := server.NewGRPCServer(beadsServer)
+		grpcServer := server.NewGRPCServer(beadsServer, cfg.AuthToken)
 
 		// Start gRPC listener.
 		lis, err := net.Listen("tcp", cfg.GRPCAddr)
@@ -76,7 +76,7 @@ var serveCmd = &cobra.Command{
 		}()
 
 		// Start HTTP server.
-		httpHandler := beadsServer.NewHTTPHandler()
+		httpHandler := beadsServer.NewHTTPHandler(cfg.AuthToken)
 		httpServer := &http.Server{
 			Addr:    cfg.HTTPAddr,
 			Handler: httpHandler,
@@ -154,6 +154,7 @@ var serveCmd = &cobra.Command{
 		logger.Info("beads server started",
 			"grpc_addr", cfg.GRPCAddr,
 			"http_addr", cfg.HTTPAddr,
+			"auth_enabled", cfg.AuthToken != "",
 		)
 
 		// Wait for SIGINT or SIGTERM.

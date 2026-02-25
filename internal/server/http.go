@@ -8,7 +8,9 @@ import (
 )
 
 // NewHTTPHandler returns an http.Handler with all routes registered.
-func (s *BeadsServer) NewHTTPHandler() http.Handler {
+// When authToken is non-empty, requests (except GET /v1/health) must include
+// a valid Authorization: Bearer <token> header.
+func (s *BeadsServer) NewHTTPHandler(authToken string) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /v1/beads", s.handleCreateBead)
 	mux.HandleFunc("GET /v1/beads", s.handleListBeads)
@@ -45,7 +47,7 @@ func (s *BeadsServer) NewHTTPHandler() http.Handler {
 	mux.HandleFunc("POST /v1/agents/{id}/gates/{gate_id}/satisfy", s.handleSatisfyGate)
 	mux.HandleFunc("DELETE /v1/agents/{id}/gates/{gate_id}", s.handleClearGate)
 	mux.HandleFunc("GET /v1/agents/roster", s.handleAgentRoster)
-	return mux
+	return AuthMiddleware(authToken, mux)
 }
 
 // handleHealth handles GET /v1/health.

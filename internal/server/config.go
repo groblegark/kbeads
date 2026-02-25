@@ -83,6 +83,15 @@ var builtinConfigs = map[string]*model.Config{
 			{"name": "responded_at",            "type": "string"}
 		]
 	}`)},
+	"type:report": {Key: "type:report", Value: json.RawMessage(`{
+		"kind": "data",
+		"fields": [
+			{"name": "decision_id", "type": "string", "required": true},
+			{"name": "report_type", "type": "string", "required": true},
+			{"name": "content",     "type": "string", "required": true},
+			{"name": "format",      "type": "string"}
+		]
+	}`)},
 }
 
 var builtinConfigsByNamespace = func() map[string][]*model.Config {

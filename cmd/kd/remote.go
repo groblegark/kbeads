@@ -74,6 +74,7 @@ var (
 	remoteOnce      sync.Once
 	cachedRemoteURL string
 	cachedNATSURL   string
+	cachedToken     string
 )
 
 func loadActiveRemoteOnce() {
@@ -88,11 +89,13 @@ func loadActiveRemoteOnce() {
 		}
 		cachedRemoteURL = r.URL
 		cachedNATSURL = r.NATSURL
+		cachedToken = r.Token
 	})
 }
 
-func activeRemoteURL() string    { loadActiveRemoteOnce(); return cachedRemoteURL }
+func activeRemoteURL() string     { loadActiveRemoteOnce(); return cachedRemoteURL }
 func activeRemoteNATSURL() string { loadActiveRemoteOnce(); return cachedNATSURL }
+func activeRemoteToken() string   { loadActiveRemoteOnce(); return cachedToken }
 
 var remoteCmd = &cobra.Command{
 	Use:     "remote",

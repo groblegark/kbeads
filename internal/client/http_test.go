@@ -53,7 +53,7 @@ func (h *testHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // newTestClient creates an HTTPClient pointed at a test server with the given handler.
 func newTestClient(h http.Handler) (*HTTPClient, *httptest.Server) {
 	srv := httptest.NewServer(h)
-	c := NewHTTPClient(srv.URL)
+	c := NewHTTPClient(srv.URL, "")
 	return c, srv
 }
 
@@ -276,7 +276,7 @@ func TestHTTPClient_Error_NonJSONBody(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := NewHTTPClient(srv.URL)
+	c := NewHTTPClient(srv.URL, "")
 	_, err := c.GetBead(context.Background(), "bead-123")
 	if err == nil {
 		t.Fatal("expected error, got nil")
@@ -401,7 +401,7 @@ func TestHTTPClient_204NoContent(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := NewHTTPClient(srv.URL)
+	c := NewHTTPClient(srv.URL, "")
 
 	err := c.DeleteBead(context.Background(), "bead-del")
 	if err != nil {
@@ -427,7 +427,7 @@ func TestHTTPClient_204NoContent(t *testing.T) {
 // --- Close ---
 
 func TestHTTPClient_Close(t *testing.T) {
-	c := NewHTTPClient("http://localhost:9999")
+	c := NewHTTPClient("http://localhost:9999", "")
 	if err := c.Close(); err != nil {
 		t.Errorf("Close() error = %v, want nil", err)
 	}
@@ -436,14 +436,14 @@ func TestHTTPClient_Close(t *testing.T) {
 // --- NewHTTPClient base URL trimming ---
 
 func TestNewHTTPClient_TrimsTrailingSlash(t *testing.T) {
-	c := NewHTTPClient("http://localhost:8080/")
+	c := NewHTTPClient("http://localhost:8080/", "")
 	if c.baseURL != "http://localhost:8080" {
 		t.Errorf("baseURL = %q, want 'http://localhost:8080'", c.baseURL)
 	}
 }
 
 func TestNewHTTPClient_NoTrailingSlash(t *testing.T) {
-	c := NewHTTPClient("http://localhost:8080")
+	c := NewHTTPClient("http://localhost:8080", "")
 	if c.baseURL != "http://localhost:8080" {
 		t.Errorf("baseURL = %q, want 'http://localhost:8080'", c.baseURL)
 	}
@@ -466,7 +466,7 @@ func TestHTTPClient_ConcurrentRequests(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := NewHTTPClient(srv.URL)
+	c := NewHTTPClient(srv.URL, "")
 
 	errs := make(chan error, 10)
 	for i := 0; i < 10; i++ {

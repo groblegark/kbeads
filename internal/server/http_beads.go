@@ -233,11 +233,28 @@ func (s *BeadsServer) handleCloseBead(w http.ResponseWriter, r *http.Request) {
 		ClosedBy: closedBy,
 	})
 
-	// If closing a decision bead, satisfy the requesting agent's gate.
+	// If closing a decision bead, satisfy the requesting agent's gate —
+	// unless the decision has a report: label (gate stays pending until report submitted).
 	if bead.Type == model.TypeDecision {
 		if agentID := decisionFieldStr(bead.Fields, "requesting_agent_bead_id"); agentID != "" {
-			if err := s.store.MarkGateSatisfied(r.Context(), agentID, "decision"); err != nil {
-				slog.Warn("failed to satisfy decision gate on close", "agent", agentID, "err", err)
+			if !hasReportLabel(bead.Labels) {
+				if err := s.store.MarkGateSatisfied(r.Context(), agentID, "decision"); err != nil {
+					slog.Warn("failed to satisfy decision gate on close", "agent", agentID, "err", err)
+				}
+			}
+		}
+	}
+
+	// If closing a report bead, satisfy the linked decision's agent gate.
+	if bead.Type == model.TypeReport {
+		if decisionID := decisionFieldStr(bead.Fields, "decision_id"); decisionID != "" {
+			decBead, err := s.store.GetBead(r.Context(), decisionID)
+			if err == nil && decBead != nil && decBead.Type == model.TypeDecision {
+				if agentID := decisionFieldStr(decBead.Fields, "requesting_agent_bead_id"); agentID != "" {
+					if err := s.store.MarkGateSatisfied(r.Context(), agentID, "decision"); err != nil {
+						slog.Warn("failed to satisfy decision gate on report close", "agent", agentID, "err", err)
+					}
+				}
 			}
 		}
 	}

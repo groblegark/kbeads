@@ -166,7 +166,7 @@ func (m *mockStore) Close() error {
 	return nil
 }
 
-func (m *mockStore) UpsertGate(_ context.Context, _, _, _ string) error { return nil }
+func (m *mockStore) UpsertGate(_ context.Context, _, _ string) error { return nil }
 
 func (m *mockStore) MarkGateSatisfied(_ context.Context, _, _ string) error { return nil }
 

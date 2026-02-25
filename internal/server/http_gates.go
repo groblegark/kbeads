@@ -35,7 +35,7 @@ func (s *BeadsServer) handleSatisfyGate(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	// Upsert first to ensure row exists.
-	if err := s.store.UpsertGate(r.Context(), agentID, gateID, ""); err != nil {
+	if err := s.store.UpsertGate(r.Context(), agentID, gateID); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}

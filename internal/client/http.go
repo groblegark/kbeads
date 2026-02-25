@@ -16,14 +16,17 @@ import (
 // HTTPClient implements BeadsClient using the kbeads HTTP/JSON REST API.
 type HTTPClient struct {
 	baseURL    string
+	token      string
 	httpClient *http.Client
 }
 
 // NewHTTPClient creates a new HTTP client targeting the given base URL
-// (e.g. "http://localhost:8080").
-func NewHTTPClient(baseURL string) *HTTPClient {
+// (e.g. "http://localhost:8080"). When token is non-empty, an Authorization
+// header is set on every request.
+func NewHTTPClient(baseURL, token string) *HTTPClient {
 	return &HTTPClient{
 		baseURL:    strings.TrimRight(baseURL, "/"),
+		token:      token,
 		httpClient: &http.Client{},
 	}
 }
@@ -328,6 +331,9 @@ func (c *HTTPClient) doJSON(ctx context.Context, method, path string, body any, 
 	}
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
+	}
+	if c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
 	}
 
 	resp, err := c.httpClient.Do(req)

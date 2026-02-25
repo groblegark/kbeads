@@ -3,7 +3,7 @@
 on:
   github:
     push:
-      if: ${{ starts-with(event.git.tag, 'v') }}
+      if: ${{ starts-with(event.git.tag, '20') }}
       init:
         commit-sha: ${{ event.git.sha }}
         ref-name: ${{ event.git.ref }}
@@ -244,7 +244,7 @@ tasks:
       fi
 
       # Generate changelog from previous tag
-      PREV_TAG=$(git tag --sort=-v:refname | grep -E '^v[0-9]' | head -2 | tail -1 || true)
+      PREV_TAG=$(git tag --sort=-v:refname | grep -E '^20' | head -2 | tail -1 || true)
       if [[ -n "$PREV_TAG" ]]; then
         CHANGELOG=$(git log --oneline "${PREV_TAG}..HEAD" \
           --no-merges \
@@ -279,14 +279,22 @@ tasks:
       TAG="${REF_NAME#refs/tags/}"
       TAG="${TAG#refs/heads/}"
 
-      if [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
-        echo "Dispatching to gasboat for rebuild (semver: $TAG)..."
-        gh workflow run bump-kd.yml \
-          -R groblegark/gasboat \
-          -f version="$TAG"
+      if [[ "$TAG" =~ ^20[0-9]{2}\.[0-9]{3,4}\.[0-9]+$ ]]; then
+        echo "Dispatching to gasboat for rebuild (CalVer: $TAG)..."
+        curl -fsSL -X POST https://api.rwx.com/v1/dispatches \
+          -H "Authorization: Bearer $RWX_ACCESS_TOKEN" \
+          -H "Content-Type: application/json" \
+          -d "{
+            \"repository\": \"gasboat\",
+            \"workflow\": \"gasboat-agent-rebuild\",
+            \"parameters\": {
+              \"trigger-source\": \"kbeads-release-$TAG\",
+              \"kd-version\": \"$TAG\"
+            }
+          }"
       else
-        echo "Not a semver tag ($TAG), skipping gasboat dispatch"
+        echo "Not a CalVer tag ($TAG), skipping gasboat dispatch"
       fi
     env:
-      GH_TOKEN: ${{ secrets.GH_TOKEN }}
+      RWX_ACCESS_TOKEN: ${{ secrets.RWX_ACCESS_TOKEN }}
       REF_NAME: ${{ init.ref-name }}

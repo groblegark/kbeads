@@ -2,6 +2,10 @@
 
 Beads is an event-driven work-tracking system. It manages hierarchical work items ("beads") with dependencies, labels, comments, and event history. The system exposes both gRPC and REST APIs and ships a Cobra-based CLI client (`kd`).
 
+## kd vs gb
+
+kd handles **data operations**: bead CRUD (create, show, list, close), deps, labels, comments, views, jacks, config, remotes, and `kd serve`. Agent **orchestration** commands (agent lifecycle, decisions, gates, hooks, bus emit, mail, prime, yield, ready, setup, advice, news) have moved to `gb` (gasboat CLI). Running deprecated kd commands prints a notice pointing to gb.
+
 ## Key concepts
 
 - **Bead** — the core work item. Has a kind (`issue`, `data`, `config`), a type (`epic`, `task`, `feature`, `chore`, `bug`, or custom), a status (`open`, `in_progress`, `deferred`, `closed`), and optional metadata, labels, dependencies, and comments.

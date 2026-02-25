@@ -2,7 +2,7 @@
 description: Find ready-to-work tasks with no blockers
 ---
 
-Run `kd ready` to show tasks that are ready to work on (no blocking dependencies).
+Run `gb ready` to show tasks that are ready to work on (no blocking dependencies).
 
 Present results showing:
 - Issue ID

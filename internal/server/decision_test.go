@@ -38,7 +38,7 @@ func newGatedStore() *gatedMockStore {
 	}
 }
 
-func (g *gatedMockStore) UpsertGate(_ context.Context, agentID, gateID, _ string) error {
+func (g *gatedMockStore) UpsertGate(_ context.Context, agentID, gateID string) error {
 	k := gateKey{agentID, gateID}
 	if _, exists := g.gates[k]; !exists {
 		g.gates[k] = false
@@ -68,7 +68,7 @@ func (g *gatedMockStore) ListGates(_ context.Context, _ string) ([]model.GateRow
 func newGatedTestServer() (*BeadsServer, *gatedMockStore, http.Handler) {
 	gs := newGatedStore()
 	s := NewBeadsServer(gs, &events.NoopPublisher{})
-	return s, gs, s.NewHTTPHandler()
+	return s, gs, s.NewHTTPHandler("")
 }
 
 // ── type:decision in builtinConfigs ───────────────────────────────────────
@@ -292,6 +292,263 @@ func TestDecisionGateSatisfiedByClose(t *testing.T) {
 
 	if !gs.gates[gateKey{agentID, "decision"}] {
 		t.Fatal("gate should be satisfied after closing decision bead")
+	}
+}
+
+// ── report-gated decision flow ─────────────────────────────────────────
+
+// TestDecisionReportGatedFlow exercises the complete report-gated lifecycle:
+//  1. Create decision with "report:summary" label
+//  2. Resolve the decision → gate stays pending (report required)
+//  3. Create and close a report bead → gate is satisfied
+func TestDecisionReportGatedFlow(t *testing.T) {
+	_, gs, h := newGatedTestServer()
+
+	const agentID = "kd-agent-report-test"
+
+	// Step 1: Emit Stop hook → gate pending → blocked.
+	stopRec := doJSON(t, h, "POST", "/v1/hooks/emit", map[string]any{
+		"agent_bead_id": agentID,
+		"hook_type":     "Stop",
+		"actor":         "test-agent",
+	})
+	requireStatus(t, stopRec, 200)
+	var stopResp map[string]any
+	decodeJSON(t, stopRec, &stopResp)
+	if stopResp["block"] != true {
+		t.Fatalf("expected block=true on Stop, got %v", stopResp)
+	}
+
+	// Step 2: Create decision with report:summary label.
+	decisionRec := doJSON(t, h, "POST", "/v1/beads", map[string]any{
+		"title":  "deploy approval?",
+		"type":   "decision",
+		"kind":   "data",
+		"labels": []string{"report:summary"},
+		"fields": map[string]any{
+			"prompt":                   "Approve deploy to prod?",
+			"requesting_agent_bead_id": agentID,
+		},
+	})
+	requireStatus(t, decisionRec, 201)
+	var decisionBead map[string]any
+	decodeJSON(t, decisionRec, &decisionBead)
+	decisionID := decisionBead["id"].(string)
+
+	// Step 3: Resolve the decision.
+	resolveRec := doJSON(t, h, "POST", "/v1/decisions/"+decisionID+"/resolve", map[string]any{
+		"selected_option": "approved",
+		"responded_by":    "human",
+	})
+	requireStatus(t, resolveRec, 200)
+
+	// Verify resolve response includes report_required.
+	var resolveResp map[string]any
+	decodeJSON(t, resolveRec, &resolveResp)
+	if resolveResp["report_required"] != true {
+		t.Fatalf("expected report_required=true in resolve response, got %v", resolveResp["report_required"])
+	}
+	if resolveResp["report_type"] != "summary" {
+		t.Fatalf("expected report_type=summary, got %v", resolveResp["report_type"])
+	}
+
+	// Gate should still be pending — report not yet submitted.
+	if gs.gates[gateKey{agentID, "decision"}] {
+		t.Fatal("gate should NOT be satisfied after resolve (report required)")
+	}
+
+	// Step 4: Create report bead linked to the decision.
+	reportRec := doJSON(t, h, "POST", "/v1/beads", map[string]any{
+		"title": "Deploy summary report",
+		"type":  "report",
+		"kind":  "data",
+		"fields": map[string]any{
+			"decision_id": decisionID,
+			"report_type": "summary",
+			"content":     "All systems verified. Deploy successful.",
+		},
+	})
+	requireStatus(t, reportRec, 201)
+	var reportBead map[string]any
+	decodeJSON(t, reportRec, &reportBead)
+	reportID := reportBead["id"].(string)
+
+	// Gate still pending — report not yet closed.
+	if gs.gates[gateKey{agentID, "decision"}] {
+		t.Fatal("gate should NOT be satisfied before report is closed")
+	}
+
+	// Step 5: Close the report bead → gate should be satisfied.
+	closeRec := doJSON(t, h, "POST", "/v1/beads/"+reportID+"/close", map[string]any{
+		"closed_by": "agent",
+	})
+	requireStatus(t, closeRec, 200)
+
+	if !gs.gates[gateKey{agentID, "decision"}] {
+		t.Fatal("gate should be satisfied after report bead closed")
+	}
+
+	// Step 6: Stop hook should now be unblocked.
+	stopRec2 := doJSON(t, h, "POST", "/v1/hooks/emit", map[string]any{
+		"agent_bead_id": agentID,
+		"hook_type":     "Stop",
+		"actor":         "test-agent",
+	})
+	requireStatus(t, stopRec2, 200)
+	var stopResp2 map[string]any
+	decodeJSON(t, stopRec2, &stopResp2)
+	if stopResp2["block"] == true {
+		t.Fatalf("expected unblocked after report submitted, got %v", stopResp2)
+	}
+}
+
+// TestDecisionWithoutReportLabel verifies decisions without report: labels
+// still satisfy the gate immediately on resolve (no regression).
+func TestDecisionWithoutReportLabel(t *testing.T) {
+	_, gs, h := newGatedTestServer()
+
+	const agentID = "kd-agent-no-report"
+
+	// Register gate.
+	doJSON(t, h, "POST", "/v1/hooks/emit", map[string]any{
+		"agent_bead_id": agentID,
+		"hook_type":     "Stop",
+		"actor":         "test-agent",
+	})
+
+	// Create decision WITHOUT report label.
+	decisionRec := doJSON(t, h, "POST", "/v1/beads", map[string]any{
+		"title": "simple decision",
+		"type":  "decision",
+		"kind":  "data",
+		"fields": map[string]any{
+			"prompt":                   "Continue?",
+			"requesting_agent_bead_id": agentID,
+		},
+	})
+	requireStatus(t, decisionRec, 201)
+	var bead map[string]any
+	decodeJSON(t, decisionRec, &bead)
+	decisionID := bead["id"].(string)
+
+	// Resolve — gate should be satisfied immediately.
+	resolveRec := doJSON(t, h, "POST", "/v1/decisions/"+decisionID+"/resolve", map[string]any{
+		"selected_option": "yes",
+		"responded_by":    "human",
+	})
+	requireStatus(t, resolveRec, 200)
+
+	// Verify resolve response does NOT include report_required.
+	var resolveResp map[string]any
+	decodeJSON(t, resolveRec, &resolveResp)
+	if resolveResp["report_required"] != nil {
+		t.Fatalf("expected no report_required for decision without label, got %v", resolveResp["report_required"])
+	}
+
+	if !gs.gates[gateKey{agentID, "decision"}] {
+		t.Fatal("gate should be satisfied immediately after resolve (no report label)")
+	}
+}
+
+// TestReportGateSatisfiedByGenericClose verifies that closing a decision bead
+// with a report: label via POST /v1/beads/{id}/close also skips gate satisfaction.
+func TestReportGateSatisfiedByGenericClose(t *testing.T) {
+	_, gs, h := newGatedTestServer()
+
+	const agentID = "kd-agent-generic-close"
+
+	// Register gate.
+	doJSON(t, h, "POST", "/v1/hooks/emit", map[string]any{
+		"agent_bead_id": agentID,
+		"hook_type":     "Stop",
+		"actor":         "test-agent",
+	})
+
+	// Create decision with report label.
+	decisionRec := doJSON(t, h, "POST", "/v1/beads", map[string]any{
+		"title":  "report-gated close test",
+		"type":   "decision",
+		"kind":   "data",
+		"labels": []string{"report:deploy-checklist"},
+		"fields": map[string]any{
+			"prompt":                   "Ready?",
+			"requesting_agent_bead_id": agentID,
+		},
+	})
+	requireStatus(t, decisionRec, 201)
+	var bead map[string]any
+	decodeJSON(t, decisionRec, &bead)
+	decisionID := bead["id"].(string)
+
+	// Close via generic close endpoint.
+	closeRec := doJSON(t, h, "POST", "/v1/beads/"+decisionID+"/close", map[string]any{
+		"closed_by": "human",
+		"chosen":    "approved",
+	})
+	requireStatus(t, closeRec, 200)
+
+	// Gate should NOT be satisfied — report required.
+	if gs.gates[gateKey{agentID, "decision"}] {
+		t.Fatal("gate should NOT be satisfied after closing report-gated decision")
+	}
+}
+
+// TestReportTypeRegistered verifies POST /v1/beads with type=report succeeds.
+func TestReportTypeRegistered(t *testing.T) {
+	_, _, h := newTestServer()
+	rec := doJSON(t, h, "POST", "/v1/beads", map[string]any{
+		"title": "test report",
+		"type":  "report",
+		"kind":  "data",
+		"fields": map[string]any{
+			"decision_id": "kd-decision-123",
+			"report_type": "summary",
+			"content":     "Report content here.",
+		},
+	})
+	requireStatus(t, rec, 201)
+
+	var resp map[string]any
+	decodeJSON(t, rec, &resp)
+	if resp["type"] != "report" {
+		t.Fatalf("expected type=report, got %v", resp["type"])
+	}
+}
+
+// TestDecisionExtractFieldsReportRequired verifies that extractDecisionFields
+// includes report_required and report_type when a report: label is present.
+func TestDecisionExtractFieldsReportRequired(t *testing.T) {
+	_, _, h := newTestServer()
+
+	// Create decision with report label.
+	decisionRec := doJSON(t, h, "POST", "/v1/beads", map[string]any{
+		"title":  "decision with report",
+		"type":   "decision",
+		"kind":   "data",
+		"labels": []string{"report:code-review"},
+		"fields": map[string]any{
+			"prompt": "Review needed?",
+		},
+	})
+	requireStatus(t, decisionRec, 201)
+	var bead map[string]any
+	decodeJSON(t, decisionRec, &bead)
+	decisionID := bead["id"].(string)
+
+	// GET /v1/decisions/{id} should include report fields.
+	getRec := doJSON(t, h, "GET", "/v1/decisions/"+decisionID, nil)
+	requireStatus(t, getRec, 200)
+
+	var resp struct {
+		Decision map[string]any `json:"decision"`
+	}
+	decodeJSON(t, getRec, &resp)
+
+	if resp.Decision["report_required"] != true {
+		t.Fatalf("expected report_required=true, got %v", resp.Decision["report_required"])
+	}
+	if resp.Decision["report_type"] != "code-review" {
+		t.Fatalf("expected report_type=code-review, got %v", resp.Decision["report_type"])
 	}
 }
 

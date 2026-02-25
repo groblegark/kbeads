@@ -14,5 +14,5 @@ If the issue ID is missing, ask for it.
 Run: `kd close <id> --reason="<reason>"`
 
 After closing, suggest checking:
-- `kd ready` for newly unblocked work
+- `gb ready` for newly unblocked work
 - Creating follow-up issues with `kd create` if needed

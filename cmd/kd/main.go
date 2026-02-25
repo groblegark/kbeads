@@ -60,11 +60,17 @@ var rootCmd = &cobra.Command{
 	Use:   "kd <command>",
 	Short: "CLI client for the Beads service",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		// Resolve auth token: env var takes precedence, then active remote.
+		token := os.Getenv("BEADS_AUTH_TOKEN")
+		if token == "" {
+			token = activeRemoteToken()
+		}
+
 		switch transport {
 		case "http":
-			beadsClient = client.NewHTTPClient(httpURL)
+			beadsClient = client.NewHTTPClient(httpURL, token)
 		case "grpc":
-			c, err := client.NewGRPCClient(serverAddr)
+			c, err := client.NewGRPCClient(serverAddr, token)
 			if err != nil {
 				return fmt.Errorf("failed to connect to server: %w", err)
 			}

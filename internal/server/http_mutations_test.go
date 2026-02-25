@@ -774,7 +774,7 @@ func TestHandleAgentRoster_NilPresence(t *testing.T) {
 	ms := newMockStore()
 	s := NewBeadsServer(ms, &events.NoopPublisher{})
 	s.Presence = nil
-	h := s.NewHTTPHandler()
+	h := s.NewHTTPHandler("")
 
 	rec := doJSON(t, h, "GET", "/v1/agents/roster", nil)
 	requireStatus(t, rec, 200)

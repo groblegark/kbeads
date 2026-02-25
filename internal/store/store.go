@@ -48,7 +48,7 @@ type Store interface {
 	DeleteConfig(ctx context.Context, key string) error
 
 	// Gate operations
-	UpsertGate(ctx context.Context, agentBeadID, gateID, claudeSessionID string) error
+	UpsertGate(ctx context.Context, agentBeadID, gateID string) error
 	MarkGateSatisfied(ctx context.Context, agentBeadID, gateID string) error
 	ClearGate(ctx context.Context, agentBeadID, gateID string) error
 	IsGateSatisfied(ctx context.Context, agentBeadID, gateID string) (bool, error)

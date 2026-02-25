@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	beadsv1 "github.com/groblegark/kbeads/gen/beads/v1"
@@ -497,11 +498,28 @@ func (s *BeadsServer) CloseBead(ctx context.Context, req *beadsv1.CloseBeadReque
 		s.recordAndPublish(ctx, events.TopicAdviceDeleted, bead.ID, req.GetClosedBy(), events.AdviceDeleted{BeadID: bead.ID})
 	}
 
-	// If a decision bead is closed, mark the requesting agent's gate satisfied.
+	// If a decision bead is closed, mark the requesting agent's gate satisfied —
+	// unless the decision has a report: label (gate stays pending until report submitted).
 	if bead.Type == model.TypeDecision {
 		if agentID := decisionFieldStr(bead.Fields, "requesting_agent_bead_id"); agentID != "" {
-			if err := s.store.MarkGateSatisfied(ctx, agentID, "decision"); err != nil {
-				slog.Warn("failed to satisfy decision gate", "agent", agentID, "err", err)
+			if !hasReportLabel(bead.Labels) {
+				if err := s.store.MarkGateSatisfied(ctx, agentID, "decision"); err != nil {
+					slog.Warn("failed to satisfy decision gate", "agent", agentID, "err", err)
+				}
+			}
+		}
+	}
+
+	// If a report bead is closed, satisfy the linked decision's agent gate.
+	if bead.Type == model.TypeReport {
+		if decisionID := decisionFieldStr(bead.Fields, "decision_id"); decisionID != "" {
+			decBead, err := s.store.GetBead(ctx, decisionID)
+			if err == nil && decBead != nil && decBead.Type == model.TypeDecision {
+				if agentID := decisionFieldStr(decBead.Fields, "requesting_agent_bead_id"); agentID != "" {
+					if err := s.store.MarkGateSatisfied(ctx, agentID, "decision"); err != nil {
+						slog.Warn("failed to satisfy decision gate on report close", "agent", agentID, "err", err)
+					}
+				}
 			}
 		}
 	}
@@ -529,6 +547,27 @@ func (s *BeadsServer) DeleteBead(ctx context.Context, req *beadsv1.DeleteBeadReq
 	s.recordAndPublish(ctx, events.TopicBeadDeleted, req.GetId(), "", events.BeadDeleted{BeadID: req.GetId()})
 
 	return &beadsv1.DeleteBeadResponse{}, nil
+}
+
+// hasReportLabel returns true if any label has the "report:" prefix.
+func hasReportLabel(labels []string) bool {
+	for _, l := range labels {
+		if strings.HasPrefix(l, "report:") {
+			return true
+		}
+	}
+	return false
+}
+
+// reportTypeFromLabels extracts the report template name from labels.
+// E.g., "report:summary" → "summary". Returns "" if no report label found.
+func reportTypeFromLabels(labels []string) string {
+	for _, l := range labels {
+		if strings.HasPrefix(l, "report:") {
+			return strings.TrimPrefix(l, "report:")
+		}
+	}
+	return ""
 }
 
 // decisionFieldStr extracts a string field from a bead's JSON fields map.

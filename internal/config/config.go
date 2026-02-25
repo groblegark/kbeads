@@ -11,6 +11,7 @@ type Config struct {
 	GRPCAddr    string // BEADS_GRPC_ADDR (default ":9090")
 	HTTPAddr    string // BEADS_HTTP_ADDR (default ":8080")
 	NATSURL     string // BEADS_NATS_URL (optional, empty = no events)
+	AuthToken   string // BEADS_AUTH_TOKEN (optional, empty = auth disabled)
 
 	// Sync settings
 	SyncInterval   time.Duration // BEADS_SYNC_INTERVAL (default 3m; 0 = disabled)
@@ -29,6 +30,7 @@ func Load() (*Config, error) {
 		GRPCAddr:       envOrDefault("BEADS_GRPC_ADDR", ":9090"),
 		HTTPAddr:       envOrDefault("BEADS_HTTP_ADDR", ":8080"),
 		NATSURL:        os.Getenv("BEADS_NATS_URL"),
+		AuthToken:      os.Getenv("BEADS_AUTH_TOKEN"),
 		SyncS3Bucket:   os.Getenv("BEADS_SYNC_S3_BUCKET"),
 		SyncS3Endpoint: os.Getenv("BEADS_SYNC_S3_ENDPOINT"),
 		SyncS3Region:   envOrDefault("BEADS_SYNC_S3_REGION", "us-east-1"),

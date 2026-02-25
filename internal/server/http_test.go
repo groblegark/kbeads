@@ -142,6 +142,7 @@ func (m *mockStore) CloseBead(_ context.Context, id string, closedBy string) (*m
 	b.ClosedAt = &now
 	b.ClosedBy = closedBy
 	b.UpdatedAt = now
+	b.Labels = m.labels[id]
 	return b, nil
 }
 
@@ -346,7 +347,7 @@ func (m *mockStore) Close() error {
 	return nil
 }
 
-func (m *mockStore) UpsertGate(_ context.Context, _, _, _ string) error { return nil }
+func (m *mockStore) UpsertGate(_ context.Context, _, _ string) error { return nil }
 
 func (m *mockStore) MarkGateSatisfied(_ context.Context, _, _ string) error { return nil }
 
@@ -364,7 +365,7 @@ func (m *mockStore) ListGates(_ context.Context, _ string) ([]model.GateRow, err
 func newTestServer() (*BeadsServer, *mockStore, http.Handler) {
 	ms := newMockStore()
 	s := NewBeadsServer(ms, &events.NoopPublisher{})
-	return s, ms, s.NewHTTPHandler()
+	return s, ms, s.NewHTTPHandler("")
 }
 
 // doJSON performs an HTTP request with an optional JSON body and returns the recorder.

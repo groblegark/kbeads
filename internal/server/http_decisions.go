@@ -142,17 +142,26 @@ func (s *BeadsServer) handleResolveDecision(w http.ResponseWriter, r *http.Reque
 		ClosedBy: closedBy,
 	})
 
-	// Satisfy the requesting agent's decision gate when the decision is resolved.
+	// Satisfy the requesting agent's decision gate when the decision is resolved,
+	// unless the decision has a report: label — in that case, the gate stays
+	// pending until the report bead is submitted and closed.
 	if agentID := decisionFieldStr(bead.Fields, "requesting_agent_bead_id"); agentID != "" {
-		if err := s.store.MarkGateSatisfied(r.Context(), agentID, "decision"); err != nil {
-			slog.Warn("failed to satisfy decision gate on resolve", "agent", agentID, "err", err)
+		if !hasReportLabel(bead.Labels) {
+			if err := s.store.MarkGateSatisfied(r.Context(), agentID, "decision"); err != nil {
+				slog.Warn("failed to satisfy decision gate on resolve", "agent", agentID, "err", err)
+			}
 		}
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{
+	resp := map[string]any{
 		"decision": extractDecisionFields(bead),
 		"issue":    bead,
-	})
+	}
+	if rt := reportTypeFromLabels(bead.Labels); rt != "" {
+		resp["report_required"] = true
+		resp["report_type"] = rt
+	}
+	writeJSON(w, http.StatusOK, resp)
 }
 
 // handleCancelDecision handles POST /v1/decisions/{id}/cancel.
@@ -250,6 +259,12 @@ func extractDecisionFields(b *model.Bead) map[string]any {
 				dec[k] = int(n)
 			}
 		}
+	}
+
+	// Report requirement derived from bead labels.
+	if rt := reportTypeFromLabels(b.Labels); rt != "" {
+		dec["report_required"] = true
+		dec["report_type"] = rt
 	}
 
 	return dec
