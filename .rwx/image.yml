@@ -1,0 +1,138 @@
+# OCI image build for kbeads — RWX native (no Dockerfiles).
+#
+# Builds kd binary and creates an RWX native image, pushing to GHCR.
+#
+# OPTIMIZATIONS:
+# - Filter directives on Go build (cached by lockfiles)
+# - RWX native layer caching replaces Docker BuildKit
+
+on:
+  github:
+    push:
+      if: ${{ event.git.branch == 'main' || starts-with(event.git.tag, 'v') }}
+      init:
+        commit-sha: ${{ event.git.sha }}
+        ref-name: ${{ event.git.ref }}
+      status-checks:
+        name: Image
+    pull_request:
+      init:
+        commit-sha: ${{ event.git.sha }}
+        ref-name: pr
+      status-checks:
+        - tasks: [build-kd]
+          name: Image
+  cli:
+    init:
+      commit-sha: ${{ event.git.sha }}
+      ref-name: cli
+
+base:
+  image: ubuntu:24.04
+  config: rwx/base 1.0.0
+
+tasks:
+  # ── System deps (cached until lock changes) ────────────────────────
+  - key: system-deps
+    filter:
+      - .rwx/system-deps.lock
+    run: |
+      echo "Installing build dependencies (should be cached)..."
+      sudo apt-get update
+      sudo apt-get install -y libicu-dev gcc g++
+
+  # ── Clone kbeads repo ─────────────────────────────────────────────
+  - key: code
+    call: git/clone 2.0.3
+    with:
+      repository: https://github.com/groblegark/kbeads.git
+      ref: ${{ init.commit-sha }}
+
+  # ── Go toolchain (cached by version, see .go-version) ─────────────
+  - key: go
+    call: golang/install 1.2.0
+    with:
+      go-version: "1.25"
+    filter:
+      - .go-version
+
+  # ── Go mod download (cached by lockfiles) ──────────────────────────
+  - key: go-deps
+    use: [code, go, system-deps]
+    run: go mod download
+    filter:
+      - go.mod
+      - go.sum
+
+  # ── Build kd binary (only when Go code changes) ───────────────────
+  - key: build-kd
+    use: [go-deps]
+    filter:
+      - "*.go"
+      - "cmd/kd/*.go"
+      - "cmd/**/*.go"
+      - "internal/**/*.go"
+      - "gen/**/*.go"
+      - "go.mod"
+      - "go.sum"
+    run: |
+      echo "Building kd binary..."
+      TAG="${REF_NAME#refs/tags/}"
+      TAG="${TAG#refs/heads/}"
+      CGO_ENABLED=1 GOOS=linux go build \
+        -ldflags="-s -w -X main.Version=${TAG} -X main.Build=${COMMIT_SHA}" \
+        -o kd ./cmd/kd
+    env:
+      COMMIT_SHA: ${{ init.commit-sha }}
+      REF_NAME: ${{ init.ref-name }}
+    outputs:
+      artifacts:
+        - key: kd-binary
+          path: kd
+
+  # ── kd daemon image (RWX native) ──────────────────────────────────
+  - key: image-kd
+    use: [build-kd]
+    if: ${{ init.ref-name != 'pr' }}
+    run: |
+      # Install runtime deps
+      sudo apt-get -y update
+      sudo apt-get -y install --no-install-recommends \
+        ca-certificates tzdata libicu74 netcat-openbsd
+      sudo rm -rf /var/lib/apt/lists/*
+
+      # Create /home/beads for UID 1000. The Helm chart's securityContext
+      # forces runAsUser:1000/fsGroup:1000 regardless of username. RWX runs
+      # as the ubuntu:1000 user so we can't rename it — just create the
+      # directory and ensure ownership.
+      sudo mkdir -p /home/beads
+      sudo chown 1000:1000 /home/beads
+
+      # Install binary
+      sudo cp ${{ tasks.build-kd.artifacts.kd-binary }} /usr/local/bin/kd
+      sudo chmod 755 /usr/local/bin/kd
+      sudo chown 1000:1000 /usr/local/bin/kd
+
+      # Configure image metadata (user by UID since we can't rename ubuntu→beads)
+      jq -n '["kd"]' > $RWX_IMAGE/entrypoint.json
+      jq -n '["daemon", "start", "--foreground", "--tcp-addr=:9876", "--http-addr=:9877", "--log-json"]' > $RWX_IMAGE/command.json
+      echo "1000" > $RWX_IMAGE/user
+      echo "/home/beads" > $RWX_IMAGE/workspace
+
+  # ── Push to GHCR ──────────────────────────────────────────────────
+  - key: push-kd
+    use: [image-kd]
+    if: ${{ init.ref-name != 'pr' }}
+    run: |
+      TAG="${REF_NAME#refs/tags/}"
+      TAG="${TAG#refs/heads/}"
+
+      rwx publish image-kd \
+        --registry ghcr.io \
+        --repository groblegark/kbeads \
+        --tag "${TAG}" \
+        --username groblegark \
+        --password "${GHCR_TOKEN}"
+    env:
+      REF_NAME: ${{ init.ref-name }}
+      GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
