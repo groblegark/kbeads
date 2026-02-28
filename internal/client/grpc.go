@@ -190,6 +190,7 @@ func (c *GRPCClient) AddDependency(ctx context.Context, req *AddDependencyReques
 		DependsOnId: req.DependsOnID,
 		Type:        req.Type,
 		CreatedBy:   req.CreatedBy,
+		Metadata:    req.Metadata,
 	})
 	if err != nil {
 		return nil, err
@@ -425,6 +426,7 @@ func protoDependencyToModel(pb *beadsv1.Dependency) *model.Dependency {
 		DependsOnID: pb.GetDependsOnId(),
 		Type:        model.DependencyType(pb.GetType()),
 		CreatedBy:   pb.GetCreatedBy(),
+		Metadata:    pb.GetMetadata(),
 	}
 	if pb.GetCreatedAt() != nil {
 		d.CreatedAt = pb.GetCreatedAt().AsTime()

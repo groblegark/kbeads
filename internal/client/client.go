@@ -170,4 +170,5 @@ type AddDependencyRequest struct {
 	DependsOnID string `json:"depends_on_id"`
 	Type        string `json:"type"`
 	CreatedBy   string `json:"created_by,omitempty"`
+	Metadata    string `json:"metadata,omitempty"`
 }

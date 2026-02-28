@@ -135,6 +135,9 @@ func (c *HTTPClient) AddDependency(ctx context.Context, req *AddDependencyReques
 		"type":          req.Type,
 		"created_by":    req.CreatedBy,
 	}
+	if req.Metadata != "" {
+		body["metadata"] = req.Metadata
+	}
 	var dep model.Dependency
 	if err := c.doJSON(ctx, http.MethodPost, "/v1/beads/"+url.PathEscape(req.BeadID)+"/dependencies", body, &dep); err != nil {
 		return nil, err

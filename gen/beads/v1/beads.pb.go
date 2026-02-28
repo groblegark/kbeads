@@ -852,6 +852,7 @@ type AddDependencyRequest struct {
 	DependsOnId   string                 `protobuf:"bytes,2,opt,name=depends_on_id,json=dependsOnId,proto3" json:"depends_on_id,omitempty"`
 	Type          string                 `protobuf:"bytes,3,opt,name=type,proto3" json:"type,omitempty"`
 	CreatedBy     string                 `protobuf:"bytes,4,opt,name=created_by,json=createdBy,proto3" json:"created_by,omitempty"`
+	Metadata      string                 `protobuf:"bytes,5,opt,name=metadata,proto3" json:"metadata,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -910,6 +911,13 @@ func (x *AddDependencyRequest) GetType() string {
 func (x *AddDependencyRequest) GetCreatedBy() string {
 	if x != nil {
 		return x.CreatedBy
+	}
+	return ""
+}
+
+func (x *AddDependencyRequest) GetMetadata() string {
+	if x != nil {
+		return x.Metadata
 	}
 	return ""
 }
@@ -1796,13 +1804,14 @@ const file_beads_v1_beads_proto_rawDesc = "" +
 	"\x04bead\x18\x01 \x01(\v2\x0e.beads.v1.BeadR\x04bead\"#\n" +
 	"\x11DeleteBeadRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"\x14\n" +
-	"\x12DeleteBeadResponse\"\x86\x01\n" +
+	"\x12DeleteBeadResponse\"\xa2\x01\n" +
 	"\x14AddDependencyRequest\x12\x17\n" +
 	"\abead_id\x18\x01 \x01(\tR\x06beadId\x12\"\n" +
 	"\rdepends_on_id\x18\x02 \x01(\tR\vdependsOnId\x12\x12\n" +
 	"\x04type\x18\x03 \x01(\tR\x04type\x12\x1d\n" +
 	"\n" +
-	"created_by\x18\x04 \x01(\tR\tcreatedBy\"M\n" +
+	"created_by\x18\x04 \x01(\tR\tcreatedBy\x12\x1a\n" +
+	"\bmetadata\x18\x05 \x01(\tR\bmetadata\"M\n" +
 	"\x15AddDependencyResponse\x124\n" +
 	"\n" +
 	"dependency\x18\x01 \x01(\v2\x14.beads.v1.DependencyR\n" +
