@@ -34,6 +34,9 @@ func printBeadTable(bead *model.Bead) {
 	if bead.Description != "" {
 		fmt.Printf("Description: %s\n", bead.Description)
 	}
+	if bead.Notes != "" {
+		fmt.Printf("Notes:       %s\n", bead.Notes)
+	}
 	if len(bead.Labels) > 0 {
 		fmt.Printf("Labels:      %s\n", strings.Join(bead.Labels, ", "))
 	}
@@ -43,6 +46,28 @@ func printBeadTable(bead *model.Bead) {
 	}
 	if !bead.UpdatedAt.IsZero() {
 		fmt.Printf("Updated At:  %s\n", bead.UpdatedAt.Format("2006-01-02 15:04:05"))
+	}
+	if bead.ClosedAt != nil {
+		fmt.Printf("Closed At:   %s\n", bead.ClosedAt.Format("2006-01-02 15:04:05"))
+	}
+	if bead.ClosedBy != "" {
+		fmt.Printf("Closed By:   %s\n", bead.ClosedBy)
+	}
+	if bead.DueAt != nil {
+		fmt.Printf("Due At:      %s\n", bead.DueAt.Format("2006-01-02 15:04:05"))
+	}
+	if bead.DeferUntil != nil {
+		fmt.Printf("Defer Until: %s\n", bead.DeferUntil.Format("2006-01-02 15:04:05"))
+	}
+	if len(bead.Fields) > 0 && string(bead.Fields) != "null" {
+		// Pretty-print fields as key: value pairs if it's a flat JSON object.
+		var fields map[string]interface{}
+		if err := json.Unmarshal(bead.Fields, &fields); err == nil && len(fields) > 0 {
+			fmt.Println("Fields:")
+			for k, v := range fields {
+				fmt.Printf("  %s: %v\n", k, v)
+			}
+		}
 	}
 }
 
@@ -170,6 +195,9 @@ func printBeadTableFiltered(bead *model.Bead, fields []string) {
 	if fieldSet["description"] && bead.Description != "" {
 		fmt.Printf("%-13s%s\n", "Description:", bead.Description)
 	}
+	if fieldSet["notes"] && bead.Notes != "" {
+		fmt.Printf("%-13s%s\n", "Notes:", bead.Notes)
+	}
 	if fieldSet["labels"] && len(bead.Labels) > 0 {
 		fmt.Printf("%-13s%s\n", "Labels:", strings.Join(bead.Labels, ", "))
 	}
@@ -181,6 +209,18 @@ func printBeadTableFiltered(bead *model.Bead, fields []string) {
 	}
 	if fieldSet["updated_at"] && !bead.UpdatedAt.IsZero() {
 		fmt.Printf("%-13s%s\n", "Updated At:", bead.UpdatedAt.Format("2006-01-02 15:04:05"))
+	}
+	if fieldSet["closed_at"] && bead.ClosedAt != nil {
+		fmt.Printf("%-13s%s\n", "Closed At:", bead.ClosedAt.Format("2006-01-02 15:04:05"))
+	}
+	if fieldSet["closed_by"] && bead.ClosedBy != "" {
+		fmt.Printf("%-13s%s\n", "Closed By:", bead.ClosedBy)
+	}
+	if fieldSet["due_at"] && bead.DueAt != nil {
+		fmt.Printf("%-13s%s\n", "Due At:", bead.DueAt.Format("2006-01-02 15:04:05"))
+	}
+	if fieldSet["defer_until"] && bead.DeferUntil != nil {
+		fmt.Printf("%-13s%s\n", "Defer Until:", bead.DeferUntil.Format("2006-01-02 15:04:05"))
 	}
 }
 
