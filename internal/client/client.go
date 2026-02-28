@@ -26,6 +26,7 @@ type BeadsClient interface {
 	AddDependency(ctx context.Context, req *AddDependencyRequest) (*model.Dependency, error)
 	RemoveDependency(ctx context.Context, beadID, dependsOnID, depType string) error
 	GetDependencies(ctx context.Context, beadID string) ([]*model.Dependency, error)
+	GetReverseDependencies(ctx context.Context, beadID string) ([]*model.Dependency, error)
 
 	// Labels
 	AddLabel(ctx context.Context, beadID, label string) (*model.Bead, error)

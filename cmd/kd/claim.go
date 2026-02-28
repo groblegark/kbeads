@@ -132,9 +132,14 @@ func checkProjectMatch(ctx context.Context, beadID string) error {
 	return nil
 }
 
-// agentProject returns the agent's project name from the BOAT_PROJECT env var,
-// or by parsing the first component of BEADS_AGENT_NAME (e.g., "gasboat/gb-zeta" → "gasboat").
-func agentProject() string {
+// resolveProject returns the effective project name following the precedence:
+// KD_PROJECT > BOAT_PROJECT > BEADS_AGENT_NAME prefix > "".
+// KD_PROJECT is the canonical env var for general use (humans, CI).
+// BOAT_PROJECT is honored as a fallback for backwards compatibility in agent pods.
+func resolveProject() string {
+	if p := os.Getenv("KD_PROJECT"); p != "" {
+		return p
+	}
 	if p := os.Getenv("BOAT_PROJECT"); p != "" {
 		return p
 	}
@@ -145,4 +150,9 @@ func agentProject() string {
 		}
 	}
 	return ""
+}
+
+// agentProject returns the agent's project name. Alias for resolveProject.
+func agentProject() string {
+	return resolveProject()
 }

@@ -363,6 +363,22 @@ func queryGetDependencies(ctx context.Context, db executor, beadID string) ([]*m
 	return scanDependencies(rows)
 }
 
+// queryGetReverseDependencies returns all deps where depends_on_id matches,
+// i.e. beads that depend ON the given bead (reverse lookup).
+func queryGetReverseDependencies(ctx context.Context, db executor, beadID string) ([]*model.Dependency, error) {
+	rows, err := db.QueryContext(ctx, `
+		SELECT bead_id, depends_on_id, type, created_at, created_by, metadata
+		FROM deps
+		WHERE depends_on_id = $1`,
+		beadID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanDependencies(rows)
+}
+
 func queryAddLabel(ctx context.Context, db executor, beadID, label string) error {
 	_, err := db.ExecContext(ctx, `
 		INSERT INTO labels (bead_id, label)

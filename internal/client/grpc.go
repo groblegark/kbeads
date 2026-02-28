@@ -216,6 +216,10 @@ func (c *GRPCClient) GetDependencies(ctx context.Context, beadID string) ([]*mod
 	return deps, nil
 }
 
+func (c *GRPCClient) GetReverseDependencies(_ context.Context, _ string) ([]*model.Dependency, error) {
+	return nil, fmt.Errorf("GetReverseDependencies not implemented for gRPC transport; use HTTP")
+}
+
 // --- Labels ---
 
 func (c *GRPCClient) AddLabel(ctx context.Context, beadID, label string) (*model.Bead, error) {
