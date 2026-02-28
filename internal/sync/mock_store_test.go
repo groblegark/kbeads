@@ -88,6 +88,18 @@ func (m *mockStore) GetDependencies(_ context.Context, beadID string) ([]*model.
 	return m.deps[beadID], nil
 }
 
+func (m *mockStore) GetReverseDependencies(_ context.Context, beadID string) ([]*model.Dependency, error) {
+	var result []*model.Dependency
+	for _, deps := range m.deps {
+		for _, d := range deps {
+			if d.DependsOnID == beadID {
+				result = append(result, d)
+			}
+		}
+	}
+	return result, nil
+}
+
 func (m *mockStore) AddLabel(_ context.Context, beadID string, label string) error {
 	m.labels[beadID] = append(m.labels[beadID], label)
 	return nil

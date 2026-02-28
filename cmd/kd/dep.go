@@ -116,6 +116,52 @@ var depListCmd = &cobra.Command{
 	},
 }
 
+var depReverseCmd = &cobra.Command{
+	Use:   "reverse <bead-id>",
+	Short: "List beads that depend ON this bead (reverse lookup)",
+	Long: `List beads that have a dependency pointing at the given bead.
+For example, if task B depends on task A, then "kd dep reverse A" returns B.
+This is the inverse of "kd dep list", which shows what a bead depends on.`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		beadID := args[0]
+
+		deps, err := beadsClient.GetReverseDependencies(context.Background(), beadID)
+		if err != nil {
+			return fmt.Errorf("listing reverse dependencies: %w", err)
+		}
+
+		if jsonOutput {
+			data, err := json.MarshalIndent(deps, "", "  ")
+			if err != nil {
+				return fmt.Errorf("marshaling JSON: %w", err)
+			}
+			fmt.Println(string(data))
+		} else {
+			if len(deps) == 0 {
+				fmt.Println("No beads depend on this bead.")
+				return nil
+			}
+			w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+			fmt.Fprintln(w, "BEAD_ID\tTYPE\tCREATED_BY\tCREATED_AT")
+			for _, d := range deps {
+				createdAt := ""
+				if !d.CreatedAt.IsZero() {
+					createdAt = d.CreatedAt.Format("2006-01-02 15:04:05")
+				}
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\n",
+					d.BeadID,
+					d.Type,
+					d.CreatedBy,
+					createdAt,
+				)
+			}
+			w.Flush()
+		}
+		return nil
+	},
+}
+
 func init() {
 	depAddCmd.Flags().StringP("type", "t", "blocks", "dependency type")
 	depRemoveCmd.Flags().StringP("type", "t", "blocks", "dependency type")
@@ -123,4 +169,5 @@ func init() {
 	depCmd.AddCommand(depAddCmd)
 	depCmd.AddCommand(depRemoveCmd)
 	depCmd.AddCommand(depListCmd)
+	depCmd.AddCommand(depReverseCmd)
 }

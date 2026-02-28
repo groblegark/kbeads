@@ -20,6 +20,7 @@ type Store interface {
 	AddDependency(ctx context.Context, dep *model.Dependency) error
 	RemoveDependency(ctx context.Context, beadID, dependsOnID string, depType model.DependencyType) error
 	GetDependencies(ctx context.Context, beadID string) ([]*model.Dependency, error)
+	GetReverseDependencies(ctx context.Context, beadID string) ([]*model.Dependency, error)
 
 	// Labels
 	AddLabel(ctx context.Context, beadID string, label string) error
