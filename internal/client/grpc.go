@@ -383,6 +383,7 @@ func protoBeadToModel(pb *beadsv1.Bead) *model.Bead {
 		Assignee:    pb.GetAssignee(),
 		Owner:       pb.GetOwner(),
 		CreatedBy:   pb.GetCreatedBy(),
+		ClosedBy:    pb.GetClosedBy(),
 		Labels:      pb.GetLabels(),
 	}
 	if pb.GetCreatedAt() != nil {
