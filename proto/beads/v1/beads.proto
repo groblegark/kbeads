@@ -51,6 +51,7 @@ message ListBeadsRequest {
   int32 offset = 9;
   string sort = 10;
   map<string, string> field_filters = 11;
+  bool no_open_deps = 12;
 }
 
 // ListBeadsResponse returns a page of beads and the total count.

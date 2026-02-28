@@ -81,6 +81,9 @@ func (c *HTTPClient) ListBeads(ctx context.Context, req *ListBeadsRequest) (*Lis
 	if req.NoOpenDeps {
 		q.Set("no_open_deps", "true")
 	}
+	for k, v := range req.FieldFilters {
+		q.Add("field_filters", k+"="+v)
+	}
 	if req.Limit > 0 {
 		q.Set("limit", fmt.Sprintf("%d", req.Limit))
 	}

@@ -312,6 +312,37 @@ func TestHTTPClient_ListBeads_NoFilters(t *testing.T) {
 	}
 }
 
+func TestHTTPClient_ListBeads_NoOpenDepsAndFieldFilters(t *testing.T) {
+	h := &testHandler{
+		responseBody: `{"beads": [], "total": 0}`,
+	}
+	c, srv := newTestClient(h)
+	defer srv.Close()
+
+	resp, err := c.ListBeads(context.Background(), &ListBeadsRequest{
+		NoOpenDeps:   true,
+		FieldFilters: map[string]string{"agent": "my-agent", "role": "crew"},
+	})
+	if err != nil {
+		t.Fatalf("ListBeads() error = %v", err)
+	}
+
+	q := h.query
+	if !strings.Contains(q, "no_open_deps=true") {
+		t.Errorf("query %q does not contain no_open_deps=true", q)
+	}
+	if !strings.Contains(q, "field_filters=agent%3Dmy-agent") && !strings.Contains(q, "field_filters=agent=my-agent") {
+		t.Errorf("query %q does not contain field_filters for agent", q)
+	}
+	if !strings.Contains(q, "field_filters=role%3Dcrew") && !strings.Contains(q, "field_filters=role=crew") {
+		t.Errorf("query %q does not contain field_filters for role", q)
+	}
+
+	if resp.Total != 0 {
+		t.Errorf("total = %d, want 0", resp.Total)
+	}
+}
+
 func TestHTTPClient_ListBeads_EmptyResponse(t *testing.T) {
 	h := &testHandler{
 		responseBody: `{"beads": null, "total": 0}`,
