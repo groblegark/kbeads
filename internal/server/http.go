@@ -19,6 +19,7 @@ func (s *BeadsServer) NewHTTPHandler(authToken string) http.Handler {
 	mux.HandleFunc("POST /v1/beads/{id}/close", s.handleCloseBead)
 	mux.HandleFunc("DELETE /v1/beads/{id}", s.handleDeleteBead)
 	mux.HandleFunc("GET /v1/beads/{id}/dependencies", s.handleGetDependencies)
+	mux.HandleFunc("GET /v1/beads/{id}/dependents", s.handleGetReverseDependencies)
 	mux.HandleFunc("POST /v1/beads/{id}/dependencies", s.handleAddDependency)
 	mux.HandleFunc("DELETE /v1/beads/{id}/dependencies", s.handleRemoveDependency)
 	mux.HandleFunc("GET /v1/beads/{id}/labels", s.handleGetLabels)

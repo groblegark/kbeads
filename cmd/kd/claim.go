@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/groblegark/kbeads/internal/client"
@@ -132,17 +131,3 @@ func checkProjectMatch(ctx context.Context, beadID string) error {
 	return nil
 }
 
-// agentProject returns the agent's project name from the BOAT_PROJECT env var,
-// or by parsing the first component of BEADS_AGENT_NAME (e.g., "gasboat/gb-zeta" → "gasboat").
-func agentProject() string {
-	if p := os.Getenv("BOAT_PROJECT"); p != "" {
-		return p
-	}
-	if name := os.Getenv("BEADS_AGENT_NAME"); name != "" {
-		parts := strings.SplitN(name, "/", 2)
-		if len(parts) == 2 && parts[0] != "" {
-			return parts[0]
-		}
-	}
-	return ""
-}

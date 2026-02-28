@@ -125,6 +125,10 @@ func (s *PostgresStore) GetDependencies(ctx context.Context, beadID string) ([]*
 	return queryGetDependencies(ctx, s.db, beadID)
 }
 
+func (s *PostgresStore) GetReverseDependencies(ctx context.Context, beadID string) ([]*model.Dependency, error) {
+	return queryGetReverseDependencies(ctx, s.db, beadID)
+}
+
 func (s *PostgresStore) AddLabel(ctx context.Context, beadID string, label string) error {
 	return queryAddLabel(ctx, s.db, beadID, label)
 }
@@ -243,6 +247,10 @@ func (s *txStore) RemoveDependency(ctx context.Context, beadID, dependsOnID stri
 
 func (s *txStore) GetDependencies(ctx context.Context, beadID string) ([]*model.Dependency, error) {
 	return queryGetDependencies(ctx, s.tx, beadID)
+}
+
+func (s *txStore) GetReverseDependencies(ctx context.Context, beadID string) ([]*model.Dependency, error) {
+	return queryGetReverseDependencies(ctx, s.tx, beadID)
 }
 
 func (s *txStore) AddLabel(ctx context.Context, beadID string, label string) error {

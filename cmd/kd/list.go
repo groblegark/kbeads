@@ -80,6 +80,6 @@ func init() {
 	listCmd.Flags().StringArrayP("field", "f", nil, "filter by custom field (key=value, repeatable)")
 	listCmd.Flags().Bool("no-blockers", false, "only show beads with no open/in_progress/deferred dependencies")
 	listCmd.Flags().String("sort", "", "sort column: priority, created_at, updated_at, title, status, type (prefix with - for descending, e.g. -priority)")
-	listCmd.Flags().StringVar(&listProjectFlag, "project", os.Getenv("BOAT_PROJECT"), "filter by project label (default: $BOAT_PROJECT)")
+	listCmd.Flags().StringVar(&listProjectFlag, "project", defaultProject(), "filter by project label (default: $KD_PROJECT or $BOAT_PROJECT)")
 	listCmd.Flags().BoolVar(&listAllProjectsFlag, "all-projects", false, "show beads from all projects (disables project filter)")
 }

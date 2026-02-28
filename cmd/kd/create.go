@@ -106,6 +106,18 @@ var createCmd = &cobra.Command{
 			}
 		}
 
+		// Apply --project label and cross-project guard.
+		project, _ := cmd.Flags().GetString("project")
+		force, _ := cmd.Flags().GetBool("force")
+		if project != "" {
+			labels = append(labels, "project:"+project)
+			if !force {
+				if ap := agentProject(); ap != "" && ap != project {
+					return fmt.Errorf("cross-project create: you are in project %q but creating in %q — use --force to override", ap, project)
+				}
+			}
+		}
+
 		fieldsJSON, err := parseFields(fieldPairs)
 		if err != nil {
 			return fmt.Errorf("parsing fields: %w", err)
@@ -148,4 +160,6 @@ func init() {
 	createCmd.Flags().String("owner", "", "owner")
 	createCmd.Flags().String("role", "", "role label to assign (adds role:<value> label; for --type agent also sets the role field)")
 	createCmd.Flags().StringArrayP("field", "f", nil, "typed field (key=value, repeatable)")
+	createCmd.Flags().String("project", defaultProject(), "project label (default: $KD_PROJECT or $BOAT_PROJECT)")
+	createCmd.Flags().Bool("force", false, "bypass cross-project check")
 }

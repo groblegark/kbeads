@@ -30,6 +30,27 @@ func (s *BeadsServer) handleGetDependencies(w http.ResponseWriter, r *http.Reque
 	writeJSON(w, http.StatusOK, map[string]any{"dependencies": deps})
 }
 
+// handleGetReverseDependencies handles GET /v1/beads/{id}/dependents.
+func (s *BeadsServer) handleGetReverseDependencies(w http.ResponseWriter, r *http.Request) {
+	beadID := r.PathValue("id")
+	if beadID == "" {
+		writeError(w, http.StatusBadRequest, "id is required")
+		return
+	}
+
+	deps, err := s.store.GetReverseDependencies(r.Context(), beadID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "failed to get reverse dependencies")
+		return
+	}
+
+	if deps == nil {
+		deps = []*model.Dependency{}
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"dependencies": deps})
+}
+
 // addDependencyRequest is the JSON body for POST /v1/beads/{id}/dependencies.
 type addDependencyRequest struct {
 	DependsOnID string `json:"depends_on_id"`

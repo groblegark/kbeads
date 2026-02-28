@@ -159,6 +159,16 @@ func (c *HTTPClient) GetDependencies(ctx context.Context, beadID string) ([]*mod
 	return resp.Dependencies, nil
 }
 
+func (c *HTTPClient) GetReverseDependencies(ctx context.Context, beadID string) ([]*model.Dependency, error) {
+	var resp struct {
+		Dependencies []*model.Dependency `json:"dependencies"`
+	}
+	if err := c.doJSON(ctx, http.MethodGet, "/v1/beads/"+url.PathEscape(beadID)+"/dependents", nil, &resp); err != nil {
+		return nil, err
+	}
+	return resp.Dependencies, nil
+}
+
 // --- Labels ---
 
 func (c *HTTPClient) AddLabel(ctx context.Context, beadID, label string) (*model.Bead, error) {
