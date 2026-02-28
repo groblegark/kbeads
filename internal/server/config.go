@@ -100,6 +100,22 @@ var builtinConfigs = map[string]*model.Config{
 			{"name": "format",      "type": "string"}
 		]
 	}`)},
+
+	// Infrastructure types — config kind.
+	"type:role":    {Key: "type:role", Value: json.RawMessage(`{"kind":"config","fields":[]}`)},
+	"type:rig":     {Key: "type:rig", Value: json.RawMessage(`{"kind":"config","fields":[]}`)},
+	"type:convoy":  {Key: "type:convoy", Value: json.RawMessage(`{"kind":"config","fields":[]}`)},
+	"type:config":  {Key: "type:config", Value: json.RawMessage(`{"kind":"config","fields":[]}`)},
+
+	// Infrastructure types — data kind.
+	"type:event":    {Key: "type:event", Value: json.RawMessage(`{"kind":"data","fields":[]}`)},
+	"type:gate":     {Key: "type:gate", Value: json.RawMessage(`{"kind":"data","fields":[]}`)},
+	"type:message":  {Key: "type:message", Value: json.RawMessage(`{"kind":"data","fields":[]}`)},
+	"type:formula":  {Key: "type:formula", Value: json.RawMessage(`{"kind":"data","fields":[]}`)},
+	"type:molecule": {Key: "type:molecule", Value: json.RawMessage(`{"kind":"data","fields":[]}`)},
+	"type:mention":  {Key: "type:mention", Value: json.RawMessage(`{"kind":"data","fields":[]}`)},
+	"type:artifact": {Key: "type:artifact", Value: json.RawMessage(`{"kind":"data","fields":[]}`)},
+	"type:runbook":  {Key: "type:runbook", Value: json.RawMessage(`{"kind":"data","fields":[]}`)},
 }
 
 var builtinConfigsByNamespace = func() map[string][]*model.Config {

@@ -17,6 +17,7 @@ var (
 var listCmd = &cobra.Command{
 	Use:     "list",
 	Short:   "List beads",
+	Long:    "List beads. By default only issue-kind beads are shown (task, feature, bug, epic, chore). Use --all-types to include infrastructure beads, or --type/--kind to filter explicitly.",
 	GroupID: "beads",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		status, _ := cmd.Flags().GetStringSlice("status")
@@ -28,6 +29,12 @@ var listCmd = &cobra.Command{
 		fieldFlags, _ := cmd.Flags().GetStringArray("field")
 		noBlockers, _ := cmd.Flags().GetBool("no-blockers")
 		sort, _ := cmd.Flags().GetString("sort")
+		allTypes, _ := cmd.Flags().GetBool("all-types")
+
+		// Default to kind=issue when no explicit type, kind, or all-types flag is set.
+		if !allTypes && len(beadType) == 0 && len(kind) == 0 {
+			kind = []string{"issue"}
+		}
 
 		req := &client.ListBeadsRequest{
 			Status:     status,
@@ -82,4 +89,5 @@ func init() {
 	listCmd.Flags().String("sort", "", "sort column: priority, created_at, updated_at, title, status, type (prefix with - for descending, e.g. -priority)")
 	listCmd.Flags().StringVar(&listProjectFlag, "project", defaultProject(), "filter by project label (default: $KD_PROJECT or $BOAT_PROJECT)")
 	listCmd.Flags().BoolVar(&listAllProjectsFlag, "all-projects", false, "show beads from all projects (disables project filter)")
+	listCmd.Flags().Bool("all-types", false, "show all bead kinds including infrastructure (default: only issue-kind beads)")
 }

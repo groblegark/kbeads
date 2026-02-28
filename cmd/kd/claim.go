@@ -73,9 +73,8 @@ func checkNoClaimed(ctx context.Context) error {
 		return nil
 	}
 	for _, b := range resp.Beads {
-		// Skip infrastructure bead types — only actionable work counts.
-		switch b.Type {
-		case "agent", "decision", "project", "mail", "report":
+		// Skip non-issue beads — only actionable work (kind=issue) counts.
+		if b.Kind != "issue" {
 			continue
 		}
 		return fmt.Errorf("you already have claimed bead %s %q — unclaim it first with `kd unclaim %s`, or use --force to override", b.ID, b.Title, b.ID)
