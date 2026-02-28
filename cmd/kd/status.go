@@ -36,6 +36,7 @@ var statusCmd = &cobra.Command{
 			out := map[string]int{
 				"open":        counts["open"],
 				"in_progress": counts["in_progress"],
+				"blocked":     counts["blocked"],
 				"deferred":    counts["deferred"],
 				"closed":      counts["closed"],
 				"total":       total,
@@ -49,6 +50,7 @@ var statusCmd = &cobra.Command{
 			fmt.Println("Beads Status")
 			fmt.Printf("  Open:        %d\n", counts["open"])
 			fmt.Printf("  In Progress: %d\n", counts["in_progress"])
+			fmt.Printf("  Blocked:     %d\n", counts["blocked"])
 			fmt.Printf("  Deferred:    %d\n", counts["deferred"])
 			fmt.Printf("  Closed:      %d\n", counts["closed"])
 			fmt.Printf("  Total:       %d\n", total)

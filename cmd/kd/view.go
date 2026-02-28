@@ -187,7 +187,23 @@ func beadField(b *model.Bead, col string) string {
 			return b.UpdatedAt.Format("2006-01-02 15:04:05")
 		}
 		return ""
+	case "slug":
+		return b.Slug
 	default:
+		// Fall back to custom fields stored in the bead's Fields JSON.
+		if len(b.Fields) > 0 {
+			var fields map[string]json.RawMessage
+			if json.Unmarshal(b.Fields, &fields) == nil {
+				if raw, ok := fields[strings.ToLower(col)]; ok {
+					// Unquote strings for display; leave other types as-is.
+					var s string
+					if json.Unmarshal(raw, &s) == nil {
+						return s
+					}
+					return string(raw)
+				}
+			}
+		}
 		return ""
 	}
 }
