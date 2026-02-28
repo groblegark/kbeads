@@ -753,70 +753,115 @@ func TestScanBead_WithOptionalFields(t *testing.T) {
 	}
 }
 
-func TestQueryGetGraph(t *testing.T) {
+func TestQueryGetDependenciesForBeads(t *testing.T) {
 	db, mock := newMockDB(t)
 	now := time.Now().UTC()
 
-	// 1. ListBeads query — returns 2 beads.
-	beadRows := sqlmock.NewRows(beadWithTotalColumns)
-	addBeadWithTotalRow(beadRows, 2, "kd-g1", "issue", "task", "Bead 1", "open", 0, now)
-	addBeadWithTotalRow(beadRows, 2, "kd-g2", "issue", "task", "Bead 2", "in_progress", 1, now)
-	mock.ExpectQuery("SELECT COUNT\\(\\*\\) OVER\\(\\) AS total_count, .+ FROM beads").
-		WillReturnRows(beadRows)
-
-	// 2a. Labels-IN query from queryListBeads (new: fetches labels for the returned bead IDs).
-	listLabelRows := sqlmock.NewRows([]string{"bead_id", "label"}).
-		AddRow("kd-g1", "urgent")
-	mock.ExpectQuery("SELECT bead_id, label FROM labels WHERE bead_id IN").
-		WithArgs(driver.Value("kd-g1"), driver.Value("kd-g2")).
-		WillReturnRows(listLabelRows)
-
-	// 2b. Labels-ALL query from queryGetGraph (fetches all labels to merge into nodes).
-	allLabelRows := sqlmock.NewRows([]string{"bead_id", "label"}).
-		AddRow("kd-g1", "urgent")
-	mock.ExpectQuery("SELECT bead_id, label FROM labels").WillReturnRows(allLabelRows)
-
-	// 3. Deps query.
 	depRows := sqlmock.NewRows([]string{"bead_id", "depends_on_id", "type", "created_at", "created_by", "metadata"}).
-		AddRow("kd-g2", "kd-g1", "blocks", now, nil, nil)
-	mock.ExpectQuery("SELECT .+ FROM deps").WillReturnRows(depRows)
+		AddRow("kd-b1", "kd-b2", "blocks", now, nil, nil).
+		AddRow("kd-b1", "kd-b3", "related", now, nil, nil)
+	mock.ExpectQuery("SELECT .+ FROM deps WHERE bead_id = ANY").
+		WillReturnRows(depRows)
 
-	// 4. Stats query.
-	statsRow := sqlmock.NewRows([]string{"open", "in_progress", "blocked", "closed", "deferred"}).
-		AddRow(1, 1, 0, 0, 0)
-	mock.ExpectQuery("SELECT").WillReturnRows(statsRow)
-
-	result, err := queryGetGraph(context.Background(), db, 500)
+	result, err := queryGetDependenciesForBeads(context.Background(), db, []string{"kd-b1", "kd-b2"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(result.Nodes) != 2 {
-		t.Fatalf("expected 2 nodes, got %d", len(result.Nodes))
+	if len(result["kd-b1"]) != 2 {
+		t.Fatalf("expected 2 deps for kd-b1, got %d", len(result["kd-b1"]))
 	}
-	if len(result.Edges) != 1 {
-		t.Fatalf("expected 1 edge, got %d", len(result.Edges))
+}
+
+func TestQueryGetDependencyCounts(t *testing.T) {
+	db, mock := newMockDB(t)
+
+	fwdRows := sqlmock.NewRows([]string{"bead_id", "count"}).
+		AddRow("kd-c1", 3)
+	mock.ExpectQuery("SELECT bead_id, COUNT\\(\\*\\) FROM deps WHERE bead_id = ANY").
+		WillReturnRows(fwdRows)
+
+	revRows := sqlmock.NewRows([]string{"depends_on_id", "count"}).
+		AddRow("kd-c1", 1)
+	mock.ExpectQuery("SELECT depends_on_id, COUNT\\(\\*\\) FROM deps WHERE depends_on_id = ANY").
+		WillReturnRows(revRows)
+
+	result, err := queryGetDependencyCounts(context.Background(), db, []string{"kd-c1"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.Edges[0].Source != "kd-g2" || result.Edges[0].Target != "kd-g1" || result.Edges[0].Type != "blocks" {
-		t.Fatalf("unexpected edge: %+v", result.Edges[0])
+	if result["kd-c1"].DependencyCount != 3 {
+		t.Fatalf("expected dep count 3, got %d", result["kd-c1"].DependencyCount)
 	}
-	if result.Stats.TotalOpen != 1 || result.Stats.TotalInProgress != 1 {
-		t.Fatalf("unexpected stats: %+v", result.Stats)
+	if result["kd-c1"].DependentCount != 1 {
+		t.Fatalf("expected dep-by count 1, got %d", result["kd-c1"].DependentCount)
 	}
-	// Verify labels were attached.
-	for _, n := range result.Nodes {
-		if n.ID == "kd-g1" {
-			if len(n.Labels) != 1 || n.Labels[0] != "urgent" {
-				t.Fatalf("expected labels=[urgent], got %v", n.Labels)
-			}
-		}
+}
+
+func TestQueryGetLabelsForBeads(t *testing.T) {
+	db, mock := newMockDB(t)
+
+	labelRows := sqlmock.NewRows([]string{"bead_id", "label"}).
+		AddRow("kd-l1", "urgent").
+		AddRow("kd-l1", "frontend").
+		AddRow("kd-l2", "backend")
+	mock.ExpectQuery("SELECT bead_id, label FROM labels WHERE bead_id = ANY").
+		WillReturnRows(labelRows)
+
+	result, err := queryGetLabelsForBeads(context.Background(), db, []string{"kd-l1", "kd-l2"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-	// Verify dependencies were attached.
-	for _, n := range result.Nodes {
-		if n.ID == "kd-g2" {
-			if len(n.Dependencies) != 1 {
-				t.Fatalf("expected 1 dependency on kd-g2, got %d", len(n.Dependencies))
-			}
-		}
+	if len(result["kd-l1"]) != 2 {
+		t.Fatalf("expected 2 labels for kd-l1, got %d", len(result["kd-l1"]))
+	}
+	if len(result["kd-l2"]) != 1 {
+		t.Fatalf("expected 1 label for kd-l2, got %d", len(result["kd-l2"]))
+	}
+}
+
+func TestQueryGetBlockedByForBeads(t *testing.T) {
+	db, mock := newMockDB(t)
+
+	blockedRows := sqlmock.NewRows([]string{"bead_id", "depends_on_id"}).
+		AddRow("kd-blocked1", "kd-blocker1").
+		AddRow("kd-blocked1", "kd-blocker2")
+	mock.ExpectQuery("SELECT d.bead_id, d.depends_on_id FROM deps").
+		WillReturnRows(blockedRows)
+
+	result, err := queryGetBlockedByForBeads(context.Background(), db, []string{"kd-blocked1"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result["kd-blocked1"]) != 2 {
+		t.Fatalf("expected 2 blockers, got %d", len(result["kd-blocked1"]))
+	}
+}
+
+func TestQueryGetBeadsByIDs(t *testing.T) {
+	db, mock := newMockDB(t)
+	now := time.Now().UTC()
+
+	beadRows := sqlmock.NewRows(beadRowColumns).
+		AddRow("kd-id1", nil, "issue", "task", "Bead 1", nil, nil, "open", 0, nil, nil, now, nil, now, nil, nil, nil, nil, nil)
+	mock.ExpectQuery("SELECT .+ FROM beads WHERE id = ANY").
+		WillReturnRows(beadRows)
+
+	result, err := queryGetBeadsByIDs(context.Background(), db, []string{"kd-id1"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result) != 1 || result[0].ID != "kd-id1" {
+		t.Fatalf("expected 1 bead with id=kd-id1, got %v", result)
+	}
+}
+
+func TestQueryGetDependenciesForBeads_Empty(t *testing.T) {
+	result, err := queryGetDependenciesForBeads(context.Background(), nil, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result) != 0 {
+		t.Fatalf("expected empty map, got %d entries", len(result))
 	}
 }
 

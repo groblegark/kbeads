@@ -305,7 +305,7 @@ func TestHandleUpdateBead_ClearLabels(t *testing.T) {
 	}
 }
 
-func TestHandleGetGraph_Empty(t *testing.T) {
+func TestHandleGraph_Empty(t *testing.T) {
 	_, _, h := newTestServer()
 	rec := doJSON(t, h, "GET", "/v1/graph", nil)
 	requireStatus(t, rec, 200)
@@ -319,7 +319,7 @@ func TestHandleGetGraph_Empty(t *testing.T) {
 	}
 }
 
-func TestHandleGetGraph_WithData(t *testing.T) {
+func TestHandleGraph_WithData(t *testing.T) {
 	_, ms, h := newTestServer()
 	ms.beads["kd-g1"] = &model.Bead{ID: "kd-g1", Title: "Open bead", Status: model.StatusOpen, Kind: model.KindIssue, Type: model.TypeTask}
 	ms.beads["kd-g2"] = &model.Bead{ID: "kd-g2", Title: "In progress", Status: model.StatusInProgress, Kind: model.KindIssue, Type: model.TypeTask}
@@ -343,23 +343,137 @@ func TestHandleGetGraph_WithData(t *testing.T) {
 	if result.Stats.TotalOpen != 1 || result.Stats.TotalInProgress != 1 || result.Stats.TotalBlocked != 1 {
 		t.Fatalf("unexpected stats: %+v", result.Stats)
 	}
+
+	// Verify node fields are properly projected.
+	nodeMap := make(map[string]model.GraphNode)
+	for _, n := range result.Nodes {
+		nodeMap[n.ID] = n
+	}
+	if nodeMap["kd-g1"].IssueType != "task" {
+		t.Fatalf("expected issue_type=task, got %q", nodeMap["kd-g1"].IssueType)
+	}
 }
 
-func TestHandleGetGraph_WithLimit(t *testing.T) {
+func TestHandleGraph_POST(t *testing.T) {
+	_, ms, h := newTestServer()
+	ms.beads["kd-p1"] = &model.Bead{ID: "kd-p1", Title: "Task", Status: model.StatusOpen, Type: model.TypeTask}
+	ms.beads["kd-p2"] = &model.Bead{ID: "kd-p2", Title: "Bug", Status: model.StatusInProgress, Type: model.TypeBug}
+
+	rec := doJSON(t, h, "POST", "/v1/graph", map[string]any{
+		"status": []string{"open", "in_progress"},
+		"limit":  100,
+	})
+	requireStatus(t, rec, 200)
+	var result model.GraphResponse
+	decodeJSON(t, rec, &result)
+	if len(result.Nodes) != 2 {
+		t.Fatalf("expected 2 nodes, got %d", len(result.Nodes))
+	}
+}
+
+func TestHandleGraph_WithLimit(t *testing.T) {
 	_, ms, h := newTestServer()
 	now := time.Now()
-	ms.beads["kd-gl1"] = &model.Bead{ID: "kd-gl1", Title: "A", Status: model.StatusOpen, UpdatedAt: now}
-	ms.beads["kd-gl2"] = &model.Bead{ID: "kd-gl2", Title: "B", Status: model.StatusOpen, UpdatedAt: now}
-	ms.beads["kd-gl3"] = &model.Bead{ID: "kd-gl3", Title: "C", Status: model.StatusOpen, UpdatedAt: now}
+	ms.beads["kd-gl1"] = &model.Bead{ID: "kd-gl1", Title: "A", Status: model.StatusOpen, UpdatedAt: now, Type: model.TypeTask}
+	ms.beads["kd-gl2"] = &model.Bead{ID: "kd-gl2", Title: "B", Status: model.StatusOpen, UpdatedAt: now, Type: model.TypeTask}
+	ms.beads["kd-gl3"] = &model.Bead{ID: "kd-gl3", Title: "C", Status: model.StatusOpen, UpdatedAt: now, Type: model.TypeTask}
 
 	rec := doJSON(t, h, "GET", "/v1/graph?limit=2", nil)
 	requireStatus(t, rec, 200)
 	var result model.GraphResponse
 	decodeJSON(t, rec, &result)
-	// The mock doesn't enforce limit, but the endpoint should accept the param.
 	// Stats should still count all 3 beads.
 	if result.Stats.TotalOpen != 3 {
 		t.Fatalf("expected total_open=3, got %d", result.Stats.TotalOpen)
+	}
+}
+
+func TestHandleGraph_AgentNodes(t *testing.T) {
+	srv, ms, h := newTestServer()
+	ms.beads["kd-a1"] = &model.Bead{ID: "kd-a1", Title: "WIP task", Status: model.StatusInProgress, Type: model.TypeTask, Assignee: "agent-1"}
+
+	// Record presence so the agent shows up.
+	srv.Presence.RecordHookEvent(presence.HookEvent{Actor: "agent-1", HookType: "PreToolUse"})
+
+	rec := doJSON(t, h, "POST", "/v1/graph", map[string]any{
+		"include_agents": true,
+	})
+	requireStatus(t, rec, 200)
+	var result model.GraphResponse
+	decodeJSON(t, rec, &result)
+
+	// Should have the bead node + agent node.
+	if len(result.Nodes) < 2 {
+		t.Fatalf("expected at least 2 nodes (bead + agent), got %d", len(result.Nodes))
+	}
+
+	// Should have an assigned_to edge.
+	hasAssignedTo := false
+	for _, e := range result.Edges {
+		if e.Type == "assigned_to" && e.Source == "agent:agent-1" && e.Target == "kd-a1" {
+			hasAssignedTo = true
+		}
+	}
+	if !hasAssignedTo {
+		t.Fatal("expected assigned_to edge from agent:agent-1 to kd-a1")
+	}
+}
+
+func TestHandleGraph_ParentChildInference(t *testing.T) {
+	_, ms, h := newTestServer()
+	ms.beads["kd-epic1"] = &model.Bead{ID: "kd-epic1", Title: "Epic", Status: model.StatusOpen, Type: model.TypeEpic}
+	ms.beads["kd-task1"] = &model.Bead{ID: "kd-task1", Title: "Task under epic", Status: model.StatusOpen, Type: model.TypeTask}
+	ms.deps["kd-task1"] = []*model.Dependency{
+		{BeadID: "kd-task1", DependsOnID: "kd-epic1", Type: model.DepBlocks},
+	}
+
+	rec := doJSON(t, h, "GET", "/v1/graph", nil)
+	requireStatus(t, rec, 200)
+	var result model.GraphResponse
+	decodeJSON(t, rec, &result)
+
+	// The blocks edge should be promoted to parent-child since target is an epic.
+	for _, e := range result.Edges {
+		if e.Source == "kd-task1" && e.Target == "kd-epic1" {
+			if e.Type != "parent-child" {
+				t.Fatalf("expected parent-child edge, got %q", e.Type)
+			}
+			return
+		}
+	}
+	t.Fatal("expected edge from kd-task1 to kd-epic1")
+}
+
+func TestHandleGraph_ClosedPruning(t *testing.T) {
+	_, ms, h := newTestServer()
+	ms.beads["kd-open1"] = &model.Bead{ID: "kd-open1", Title: "Open", Status: model.StatusOpen, Type: model.TypeTask}
+	ms.beads["kd-closed1"] = &model.Bead{ID: "kd-closed1", Title: "Closed connected", Status: model.StatusClosed, Type: model.TypeTask}
+	ms.beads["kd-closed2"] = &model.Bead{ID: "kd-closed2", Title: "Closed disconnected", Status: model.StatusClosed, Type: model.TypeTask}
+	ms.deps["kd-open1"] = []*model.Dependency{
+		{BeadID: "kd-open1", DependsOnID: "kd-closed1", Type: model.DepBlocks},
+	}
+
+	// Include closed in status filter so they show up.
+	rec := doJSON(t, h, "POST", "/v1/graph", map[string]any{
+		"status": []string{"open", "in_progress", "blocked", "deferred", "closed"},
+	})
+	requireStatus(t, rec, 200)
+	var result model.GraphResponse
+	decodeJSON(t, rec, &result)
+
+	// kd-closed1 should be kept (connected to open), kd-closed2 should be pruned.
+	nodeIDs := make(map[string]bool)
+	for _, n := range result.Nodes {
+		nodeIDs[n.ID] = true
+	}
+	if !nodeIDs["kd-open1"] {
+		t.Fatal("expected kd-open1 in nodes")
+	}
+	if !nodeIDs["kd-closed1"] {
+		t.Fatal("expected kd-closed1 in nodes (connected to open)")
+	}
+	if nodeIDs["kd-closed2"] {
+		t.Fatal("expected kd-closed2 to be pruned (disconnected closed)")
 	}
 }
 

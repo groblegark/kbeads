@@ -22,6 +22,14 @@ type Store interface {
 	GetDependencies(ctx context.Context, beadID string) ([]*model.Dependency, error)
 	GetReverseDependencies(ctx context.Context, beadID string) ([]*model.Dependency, error)
 
+	// Batch dependency/label queries (graph endpoint)
+	GetDependenciesForBeads(ctx context.Context, beadIDs []string) (map[string][]*model.Dependency, error)
+	GetReverseDependenciesForBeads(ctx context.Context, beadIDs []string) (map[string][]*model.Dependency, error)
+	GetDependencyCounts(ctx context.Context, beadIDs []string) (map[string]*model.DependencyCounts, error)
+	GetLabelsForBeads(ctx context.Context, beadIDs []string) (map[string][]string, error)
+	GetBlockedByForBeads(ctx context.Context, beadIDs []string) (map[string][]string, error)
+	GetBeadsByIDs(ctx context.Context, ids []string) ([]*model.Bead, error)
+
 	// Labels
 	AddLabel(ctx context.Context, beadID string, label string) error
 	RemoveLabel(ctx context.Context, beadID string, label string) error
@@ -34,9 +42,6 @@ type Store interface {
 	// Events
 	RecordEvent(ctx context.Context, event *model.Event) error
 	GetEvents(ctx context.Context, beadID string) ([]*model.Event, error)
-
-	// Graph
-	GetGraph(ctx context.Context, limit int) (*model.GraphResponse, error)
 
 	// Stats
 	GetStats(ctx context.Context) (*model.GraphStats, error)

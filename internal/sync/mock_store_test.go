@@ -67,8 +67,34 @@ func (m *mockStore) DeleteBead(_ context.Context, id string) error {
 	return nil
 }
 
-func (m *mockStore) GetGraph(_ context.Context, _ int) (*model.GraphResponse, error) {
-	return &model.GraphResponse{Nodes: []*model.Bead{}, Edges: []*model.GraphEdge{}, Stats: &model.GraphStats{}}, nil
+func (m *mockStore) GetDependenciesForBeads(_ context.Context, _ []string) (map[string][]*model.Dependency, error) {
+	return make(map[string][]*model.Dependency), nil
+}
+
+func (m *mockStore) GetReverseDependenciesForBeads(_ context.Context, _ []string) (map[string][]*model.Dependency, error) {
+	return make(map[string][]*model.Dependency), nil
+}
+
+func (m *mockStore) GetDependencyCounts(_ context.Context, _ []string) (map[string]*model.DependencyCounts, error) {
+	return make(map[string]*model.DependencyCounts), nil
+}
+
+func (m *mockStore) GetLabelsForBeads(_ context.Context, _ []string) (map[string][]string, error) {
+	return make(map[string][]string), nil
+}
+
+func (m *mockStore) GetBlockedByForBeads(_ context.Context, _ []string) (map[string][]string, error) {
+	return make(map[string][]string), nil
+}
+
+func (m *mockStore) GetBeadsByIDs(_ context.Context, ids []string) ([]*model.Bead, error) {
+	var result []*model.Bead
+	for _, id := range ids {
+		if b, ok := m.beads[id]; ok {
+			result = append(result, b)
+		}
+	}
+	return result, nil
 }
 
 func (m *mockStore) GetStats(_ context.Context) (*model.GraphStats, error) {

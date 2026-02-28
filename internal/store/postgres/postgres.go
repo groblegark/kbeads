@@ -105,12 +105,32 @@ func (s *PostgresStore) DeleteBead(ctx context.Context, id string) error {
 	return queryDeleteBead(ctx, s.db, id)
 }
 
-func (s *PostgresStore) GetGraph(ctx context.Context, limit int) (*model.GraphResponse, error) {
-	return queryGetGraph(ctx, s.db, limit)
-}
-
 func (s *PostgresStore) GetStats(ctx context.Context) (*model.GraphStats, error) {
 	return queryGetStats(ctx, s.db)
+}
+
+func (s *PostgresStore) GetDependenciesForBeads(ctx context.Context, beadIDs []string) (map[string][]*model.Dependency, error) {
+	return queryGetDependenciesForBeads(ctx, s.db, beadIDs)
+}
+
+func (s *PostgresStore) GetReverseDependenciesForBeads(ctx context.Context, beadIDs []string) (map[string][]*model.Dependency, error) {
+	return queryGetReverseDependenciesForBeads(ctx, s.db, beadIDs)
+}
+
+func (s *PostgresStore) GetDependencyCounts(ctx context.Context, beadIDs []string) (map[string]*model.DependencyCounts, error) {
+	return queryGetDependencyCounts(ctx, s.db, beadIDs)
+}
+
+func (s *PostgresStore) GetLabelsForBeads(ctx context.Context, beadIDs []string) (map[string][]string, error) {
+	return queryGetLabelsForBeads(ctx, s.db, beadIDs)
+}
+
+func (s *PostgresStore) GetBlockedByForBeads(ctx context.Context, beadIDs []string) (map[string][]string, error) {
+	return queryGetBlockedByForBeads(ctx, s.db, beadIDs)
+}
+
+func (s *PostgresStore) GetBeadsByIDs(ctx context.Context, ids []string) ([]*model.Bead, error) {
+	return queryGetBeadsByIDs(ctx, s.db, ids)
 }
 
 func (s *PostgresStore) AddDependency(ctx context.Context, dep *model.Dependency) error {
@@ -229,12 +249,32 @@ func (s *txStore) DeleteBead(ctx context.Context, id string) error {
 	return queryDeleteBead(ctx, s.tx, id)
 }
 
-func (s *txStore) GetGraph(ctx context.Context, limit int) (*model.GraphResponse, error) {
-	return queryGetGraph(ctx, s.tx, limit)
-}
-
 func (s *txStore) GetStats(ctx context.Context) (*model.GraphStats, error) {
 	return queryGetStats(ctx, s.tx)
+}
+
+func (s *txStore) GetDependenciesForBeads(ctx context.Context, beadIDs []string) (map[string][]*model.Dependency, error) {
+	return queryGetDependenciesForBeads(ctx, s.tx, beadIDs)
+}
+
+func (s *txStore) GetReverseDependenciesForBeads(ctx context.Context, beadIDs []string) (map[string][]*model.Dependency, error) {
+	return queryGetReverseDependenciesForBeads(ctx, s.tx, beadIDs)
+}
+
+func (s *txStore) GetDependencyCounts(ctx context.Context, beadIDs []string) (map[string]*model.DependencyCounts, error) {
+	return queryGetDependencyCounts(ctx, s.tx, beadIDs)
+}
+
+func (s *txStore) GetLabelsForBeads(ctx context.Context, beadIDs []string) (map[string][]string, error) {
+	return queryGetLabelsForBeads(ctx, s.tx, beadIDs)
+}
+
+func (s *txStore) GetBlockedByForBeads(ctx context.Context, beadIDs []string) (map[string][]string, error) {
+	return queryGetBlockedByForBeads(ctx, s.tx, beadIDs)
+}
+
+func (s *txStore) GetBeadsByIDs(ctx context.Context, ids []string) ([]*model.Bead, error) {
+	return queryGetBeadsByIDs(ctx, s.tx, ids)
 }
 
 func (s *txStore) AddDependency(ctx context.Context, dep *model.Dependency) error {

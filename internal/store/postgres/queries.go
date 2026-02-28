@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/groblegark/kbeads/internal/model"
+	"github.com/lib/pq"
 )
 
 // beadColumns is the column list used for SELECT statements on the beads table.
@@ -116,6 +117,15 @@ func queryListBeads(ctx context.Context, db executor, filter model.BeadFilter) (
 		whereClauses = append(whereClauses, "type IN ("+strings.Join(placeholders, ", ")+")")
 	}
 
+	if len(filter.ExcludeTypes) > 0 {
+		placeholders := make([]string, len(filter.ExcludeTypes))
+		for i, t := range filter.ExcludeTypes {
+			placeholders[i] = nextArg()
+			args = append(args, string(t))
+		}
+		whereClauses = append(whereClauses, "type NOT IN ("+strings.Join(placeholders, ", ")+")")
+	}
+
 	if len(filter.Kind) > 0 {
 		placeholders := make([]string, len(filter.Kind))
 		for i, k := range filter.Kind {
@@ -130,6 +140,16 @@ func queryListBeads(ctx context.Context, db executor, filter model.BeadFilter) (
 		args = append(args, *filter.Priority)
 	}
 
+	if filter.PriorityMin != nil {
+		whereClauses = append(whereClauses, "priority >= "+nextArg())
+		args = append(args, *filter.PriorityMin)
+	}
+
+	if filter.PriorityMax != nil {
+		whereClauses = append(whereClauses, "priority <= "+nextArg())
+		args = append(args, *filter.PriorityMax)
+	}
+
 	if filter.Assignee != "" {
 		whereClauses = append(whereClauses, "assignee = "+nextArg())
 		args = append(args, filter.Assignee)
@@ -142,6 +162,31 @@ func queryListBeads(ctx context.Context, db executor, filter model.BeadFilter) (
 				fmt.Sprintf("EXISTS (SELECT 1 FROM labels WHERE labels.bead_id = beads.id AND labels.label = %s)", p))
 			args = append(args, label)
 		}
+	}
+
+	if len(filter.LabelsAny) > 0 {
+		p := nextArg()
+		whereClauses = append(whereClauses,
+			fmt.Sprintf("EXISTS (SELECT 1 FROM labels WHERE labels.bead_id = beads.id AND labels.label = ANY(%s::text[]))", p))
+		args = append(args, pq.Array(filter.LabelsAny))
+	}
+
+	if len(filter.IDs) > 0 {
+		p := nextArg()
+		whereClauses = append(whereClauses, "id = ANY("+p+"::text[])")
+		args = append(args, pq.Array(filter.IDs))
+	}
+
+	if filter.UpdatedAfter != nil {
+		whereClauses = append(whereClauses, "updated_at > "+nextArg())
+		args = append(args, *filter.UpdatedAfter)
+	}
+
+	if filter.ParentID != "" {
+		p := nextArg()
+		whereClauses = append(whereClauses,
+			fmt.Sprintf("EXISTS (SELECT 1 FROM deps WHERE deps.bead_id = beads.id AND deps.depends_on_id = %s AND deps.type = 'parent-child')", p))
+		args = append(args, filter.ParentID)
 	}
 
 	if filter.Search != "" {
@@ -518,131 +563,6 @@ func queryDeleteConfig(ctx context.Context, db executor, key string) error {
 		return sql.ErrNoRows
 	}
 	return nil
-}
-
-func queryGetGraph(ctx context.Context, db executor, limit int) (*model.GraphResponse, error) {
-	if limit <= 0 {
-		limit = 500
-	}
-
-	// Fetch beads with labels in a single pass.
-	beads, _, err := queryListBeads(ctx, db, model.BeadFilter{
-		Limit: limit,
-		Sort:  "-updated_at",
-	})
-	if err != nil {
-		return nil, fmt.Errorf("graph: list beads: %w", err)
-	}
-
-	// Build a set of bead IDs for edge filtering.
-	idSet := make(map[string]struct{}, len(beads))
-	for _, b := range beads {
-		idSet[b.ID] = struct{}{}
-	}
-
-	// Fetch labels for all beads in one query.
-	if len(beads) > 0 {
-		labelRows, err := db.QueryContext(ctx, `SELECT bead_id, label FROM labels`)
-		if err != nil {
-			return nil, fmt.Errorf("graph: fetch labels: %w", err)
-		}
-		defer labelRows.Close()
-
-		labelMap := make(map[string][]string)
-		for labelRows.Next() {
-			var beadID, label string
-			if err := labelRows.Scan(&beadID, &label); err != nil {
-				return nil, fmt.Errorf("graph: scan label: %w", err)
-			}
-			labelMap[beadID] = append(labelMap[beadID], label)
-		}
-		if err := labelRows.Err(); err != nil {
-			return nil, fmt.Errorf("graph: label rows: %w", err)
-		}
-
-		for _, b := range beads {
-			if labels, ok := labelMap[b.ID]; ok {
-				b.Labels = labels
-			}
-		}
-	}
-
-	// Fetch all dependencies in one query (not per-bead N+1).
-	depRows, err := db.QueryContext(ctx, `
-		SELECT bead_id, depends_on_id, type, created_at, created_by, metadata
-		FROM deps`)
-	if err != nil {
-		return nil, fmt.Errorf("graph: fetch deps: %w", err)
-	}
-	defer depRows.Close()
-
-	var edges []*model.GraphEdge
-	depMap := make(map[string][]*model.Dependency)
-	for depRows.Next() {
-		d, err := scanDependency(depRows)
-		if err != nil {
-			return nil, fmt.Errorf("graph: scan dep: %w", err)
-		}
-		depMap[d.BeadID] = append(depMap[d.BeadID], d)
-
-		// Only include edges where both endpoints are in the node set.
-		_, srcOK := idSet[d.BeadID]
-		_, tgtOK := idSet[d.DependsOnID]
-		if srcOK && tgtOK {
-			depType := string(d.Type)
-			if depType == "" {
-				depType = "blocks"
-			}
-			edges = append(edges, &model.GraphEdge{
-				Source: d.BeadID,
-				Target: d.DependsOnID,
-				Type:   depType,
-			})
-		}
-	}
-	if err := depRows.Err(); err != nil {
-		return nil, fmt.Errorf("graph: dep rows: %w", err)
-	}
-
-	// Attach dependencies to beads.
-	for _, b := range beads {
-		if deps, ok := depMap[b.ID]; ok {
-			b.Dependencies = deps
-		}
-	}
-
-	// Compute stats via a single query.
-	stats := &model.GraphStats{}
-	err = db.QueryRowContext(ctx, `
-		SELECT
-			COALESCE(SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END), 0),
-			COALESCE(SUM(CASE WHEN status = 'in_progress' THEN 1 ELSE 0 END), 0),
-			COALESCE(SUM(CASE WHEN status = 'blocked' THEN 1 ELSE 0 END), 0),
-			COALESCE(SUM(CASE WHEN status = 'closed' THEN 1 ELSE 0 END), 0),
-			COALESCE(SUM(CASE WHEN status = 'deferred' THEN 1 ELSE 0 END), 0)
-		FROM beads`).Scan(
-		&stats.TotalOpen,
-		&stats.TotalInProgress,
-		&stats.TotalBlocked,
-		&stats.TotalClosed,
-		&stats.TotalDeferred,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("graph: stats: %w", err)
-	}
-
-	if beads == nil {
-		beads = []*model.Bead{}
-	}
-	if edges == nil {
-		edges = []*model.GraphEdge{}
-	}
-
-	return &model.GraphResponse{
-		Nodes: beads,
-		Edges: edges,
-		Stats: stats,
-	}, nil
 }
 
 func queryGetStats(ctx context.Context, db executor) (*model.GraphStats, error) {

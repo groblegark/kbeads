@@ -174,53 +174,92 @@ func (m *mockStore) GetStats(_ context.Context) (*model.GraphStats, error) {
 	return stats, nil
 }
 
-func (m *mockStore) GetGraph(_ context.Context, limit int) (*model.GraphResponse, error) {
-	beads, total, _ := m.ListBeads(context.Background(), model.BeadFilter{Limit: limit, Sort: "-updated_at"})
-	idSet := make(map[string]struct{}, len(beads))
-	for _, b := range beads {
-		idSet[b.ID] = struct{}{}
-		b.Labels = m.labels[b.ID]
-		b.Dependencies = m.deps[b.ID]
+func (m *mockStore) GetDependenciesForBeads(_ context.Context, beadIDs []string) (map[string][]*model.Dependency, error) {
+	result := make(map[string][]*model.Dependency)
+	idSet := make(map[string]bool, len(beadIDs))
+	for _, id := range beadIDs {
+		idSet[id] = true
 	}
-	var edges []*model.GraphEdge
+	for id, deps := range m.deps {
+		if idSet[id] {
+			result[id] = deps
+		}
+	}
+	return result, nil
+}
+
+func (m *mockStore) GetReverseDependenciesForBeads(_ context.Context, beadIDs []string) (map[string][]*model.Dependency, error) {
+	idSet := make(map[string]bool, len(beadIDs))
+	for _, id := range beadIDs {
+		idSet[id] = true
+	}
+	result := make(map[string][]*model.Dependency)
 	for _, deps := range m.deps {
 		for _, d := range deps {
-			if _, ok := idSet[d.BeadID]; !ok {
-				continue
+			if idSet[d.DependsOnID] {
+				result[d.DependsOnID] = append(result[d.DependsOnID], d)
 			}
-			if _, ok := idSet[d.DependsOnID]; !ok {
-				continue
-			}
-			depType := string(d.Type)
-			if depType == "" {
-				depType = "blocks"
-			}
-			edges = append(edges, &model.GraphEdge{Source: d.BeadID, Target: d.DependsOnID, Type: depType})
 		}
 	}
-	stats := &model.GraphStats{}
-	for _, b := range m.beads {
-		switch b.Status {
-		case model.StatusOpen:
-			stats.TotalOpen++
-		case model.StatusInProgress:
-			stats.TotalInProgress++
-		case model.StatusBlocked:
-			stats.TotalBlocked++
-		case model.StatusClosed:
-			stats.TotalClosed++
-		case model.StatusDeferred:
-			stats.TotalDeferred++
+	return result, nil
+}
+
+func (m *mockStore) GetDependencyCounts(_ context.Context, beadIDs []string) (map[string]*model.DependencyCounts, error) {
+	result := make(map[string]*model.DependencyCounts)
+	for _, id := range beadIDs {
+		result[id] = &model.DependencyCounts{
+			DependencyCount: len(m.deps[id]),
 		}
 	}
-	if beads == nil {
-		beads = []*model.Bead{}
+	for _, deps := range m.deps {
+		for _, d := range deps {
+			if dc, ok := result[d.DependsOnID]; ok {
+				dc.DependentCount++
+			}
+		}
 	}
-	if edges == nil {
-		edges = []*model.GraphEdge{}
+	return result, nil
+}
+
+func (m *mockStore) GetLabelsForBeads(_ context.Context, beadIDs []string) (map[string][]string, error) {
+	result := make(map[string][]string)
+	for _, id := range beadIDs {
+		if labels, ok := m.labels[id]; ok {
+			result[id] = labels
+		}
 	}
-	_ = total
-	return &model.GraphResponse{Nodes: beads, Edges: edges, Stats: stats}, nil
+	return result, nil
+}
+
+func (m *mockStore) GetBlockedByForBeads(_ context.Context, beadIDs []string) (map[string][]string, error) {
+	idSet := make(map[string]bool, len(beadIDs))
+	for _, id := range beadIDs {
+		idSet[id] = true
+	}
+	result := make(map[string][]string)
+	for id, deps := range m.deps {
+		if !idSet[id] {
+			continue
+		}
+		for _, d := range deps {
+			if d.Type == model.DepBlocks {
+				result[id] = append(result[id], d.DependsOnID)
+			}
+		}
+	}
+	return result, nil
+}
+
+func (m *mockStore) GetBeadsByIDs(_ context.Context, ids []string) ([]*model.Bead, error) {
+	var result []*model.Bead
+	for _, id := range ids {
+		if b, ok := m.beads[id]; ok {
+			clone := *b
+			clone.Labels = m.labels[id]
+			result = append(result, &clone)
+		}
+	}
+	return result, nil
 }
 
 func (m *mockStore) AddDependency(_ context.Context, dep *model.Dependency) error {
