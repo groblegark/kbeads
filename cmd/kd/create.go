@@ -62,6 +62,11 @@ func parseFields(pairs []string) ([]byte, error) {
 	return b, nil
 }
 
+var (
+	createProjectFlag string
+	createForce       bool
+)
+
 var createCmd = &cobra.Command{
 	Use:     "create <title>",
 	Short:   "Create a new bead",
@@ -80,6 +85,18 @@ var createCmd = &cobra.Command{
 		role, _ := cmd.Flags().GetString("role")
 
 		fieldPairs, _ := cmd.Flags().GetStringArray("field")
+
+		// Cross-project guard: if agent has a project and --project differs, require --force.
+		if !createForce && createProjectFlag != "" {
+			if ap := agentProject(); ap != "" && createProjectFlag != ap {
+				return fmt.Errorf("--project %q differs from agent project %q — use --force to override", createProjectFlag, ap)
+			}
+		}
+
+		// Auto-add project label when --project is set.
+		if createProjectFlag != "" {
+			labels = append(labels, "project:"+createProjectFlag)
+		}
 
 		if role != "" {
 			labels = append(labels, "role:"+role)
@@ -148,4 +165,6 @@ func init() {
 	createCmd.Flags().String("owner", "", "owner")
 	createCmd.Flags().String("role", "", "role label to assign (adds role:<value> label; for --type agent also sets the role field)")
 	createCmd.Flags().StringArrayP("field", "f", nil, "typed field (key=value, repeatable)")
+	createCmd.Flags().StringVar(&createProjectFlag, "project", resolveProject(), "project label to add (default: $KD_PROJECT or $BOAT_PROJECT)")
+	createCmd.Flags().BoolVar(&createForce, "force", false, "bypass cross-project guard")
 }
