@@ -156,7 +156,54 @@ func beadField(b *model.Bead, col string) string {
 		return b.CreatedBy
 	case "labels":
 		return strings.Join(b.Labels, ",")
+	case "notes":
+		return b.Notes
+	case "description":
+		return b.Description
+	case "closed_at":
+		if b.ClosedAt != nil {
+			return b.ClosedAt.Format("2006-01-02 15:04:05")
+		}
+		return ""
+	case "closed_by":
+		return b.ClosedBy
+	case "due_at":
+		if b.DueAt != nil {
+			return b.DueAt.Format("2006-01-02 15:04:05")
+		}
+		return ""
+	case "defer_until":
+		if b.DeferUntil != nil {
+			return b.DeferUntil.Format("2006-01-02 15:04:05")
+		}
+		return ""
+	case "created_at":
+		if !b.CreatedAt.IsZero() {
+			return b.CreatedAt.Format("2006-01-02 15:04:05")
+		}
+		return ""
+	case "updated_at":
+		if !b.UpdatedAt.IsZero() {
+			return b.UpdatedAt.Format("2006-01-02 15:04:05")
+		}
+		return ""
+	case "slug":
+		return b.Slug
 	default:
+		// Fall back to custom fields stored in the bead's Fields JSON.
+		if len(b.Fields) > 0 {
+			var fields map[string]json.RawMessage
+			if json.Unmarshal(b.Fields, &fields) == nil {
+				if raw, ok := fields[strings.ToLower(col)]; ok {
+					// Unquote strings for display; leave other types as-is.
+					var s string
+					if json.Unmarshal(raw, &s) == nil {
+						return s
+					}
+					return string(raw)
+				}
+			}
+		}
 		return ""
 	}
 }

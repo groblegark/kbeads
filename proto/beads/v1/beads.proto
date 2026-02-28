@@ -51,6 +51,7 @@ message ListBeadsRequest {
   int32 offset = 9;
   string sort = 10;
   map<string, string> field_filters = 11;
+  bool no_open_deps = 12;
 }
 
 // ListBeadsResponse returns a page of beads and the total count.
@@ -107,6 +108,7 @@ message AddDependencyRequest {
   string depends_on_id = 2;
   string type = 3;
   string created_by = 4;
+  string metadata = 5;
 }
 
 // AddDependencyResponse returns the created dependency.

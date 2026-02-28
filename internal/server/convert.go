@@ -33,6 +33,7 @@ func beadToProto(b *model.Bead) *beadsv1.Bead {
 		CreatedAt:   timestamppb.New(b.CreatedAt),
 		CreatedBy:   b.CreatedBy,
 		UpdatedAt:   timestamppb.New(b.UpdatedAt),
+		ClosedBy:    b.ClosedBy,
 		Fields:      []byte(b.Fields),
 		Labels:      b.Labels,
 	}

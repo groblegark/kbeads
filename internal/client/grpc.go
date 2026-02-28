@@ -91,15 +91,17 @@ func (c *GRPCClient) GetBead(ctx context.Context, id string) (*model.Bead, error
 
 func (c *GRPCClient) ListBeads(ctx context.Context, req *ListBeadsRequest) (*ListBeadsResponse, error) {
 	pbReq := &beadsv1.ListBeadsRequest{
-		Status:   req.Status,
-		Type:     req.Type,
-		Kind:     req.Kind,
-		Labels:   req.Labels,
-		Assignee: req.Assignee,
-		Search:   req.Search,
-		Sort:     req.Sort,
-		Limit:    int32(req.Limit),
-		Offset:   int32(req.Offset),
+		Status:       req.Status,
+		Type:         req.Type,
+		Kind:         req.Kind,
+		Labels:       req.Labels,
+		Assignee:     req.Assignee,
+		Search:       req.Search,
+		Sort:         req.Sort,
+		Limit:        int32(req.Limit),
+		Offset:       int32(req.Offset),
+		FieldFilters: req.FieldFilters,
+		NoOpenDeps:   req.NoOpenDeps,
 	}
 	if req.Priority != nil {
 		pbReq.Priority = wrapperspb.Int32(int32(*req.Priority))
@@ -188,6 +190,7 @@ func (c *GRPCClient) AddDependency(ctx context.Context, req *AddDependencyReques
 		DependsOnId: req.DependsOnID,
 		Type:        req.Type,
 		CreatedBy:   req.CreatedBy,
+		Metadata:    req.Metadata,
 	})
 	if err != nil {
 		return nil, err
@@ -380,6 +383,7 @@ func protoBeadToModel(pb *beadsv1.Bead) *model.Bead {
 		Assignee:    pb.GetAssignee(),
 		Owner:       pb.GetOwner(),
 		CreatedBy:   pb.GetCreatedBy(),
+		ClosedBy:    pb.GetClosedBy(),
 		Labels:      pb.GetLabels(),
 	}
 	if pb.GetCreatedAt() != nil {
@@ -423,6 +427,7 @@ func protoDependencyToModel(pb *beadsv1.Dependency) *model.Dependency {
 		DependsOnID: pb.GetDependsOnId(),
 		Type:        model.DependencyType(pb.GetType()),
 		CreatedBy:   pb.GetCreatedBy(),
+		Metadata:    pb.GetMetadata(),
 	}
 	if pb.GetCreatedAt() != nil {
 		d.CreatedAt = pb.GetCreatedAt().AsTime()

@@ -27,6 +27,7 @@ message Bead {
   repeated string labels = 19;
   repeated Dependency dependencies = 20;
   repeated Comment comments = 21;
+  string closed_by = 22;
 }
 
 // Dependency represents a directional relationship between two beads.

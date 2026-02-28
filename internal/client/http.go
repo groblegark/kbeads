@@ -81,6 +81,9 @@ func (c *HTTPClient) ListBeads(ctx context.Context, req *ListBeadsRequest) (*Lis
 	if req.NoOpenDeps {
 		q.Set("no_open_deps", "true")
 	}
+	for k, v := range req.FieldFilters {
+		q.Add("field_filters", k+"="+v)
+	}
 	if req.Limit > 0 {
 		q.Set("limit", fmt.Sprintf("%d", req.Limit))
 	}
@@ -131,6 +134,9 @@ func (c *HTTPClient) AddDependency(ctx context.Context, req *AddDependencyReques
 		"depends_on_id": req.DependsOnID,
 		"type":          req.Type,
 		"created_by":    req.CreatedBy,
+	}
+	if req.Metadata != "" {
+		body["metadata"] = req.Metadata
 	}
 	var dep model.Dependency
 	if err := c.doJSON(ctx, http.MethodPost, "/v1/beads/"+url.PathEscape(req.BeadID)+"/dependencies", body, &dep); err != nil {

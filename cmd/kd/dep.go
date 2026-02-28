@@ -25,12 +25,14 @@ var depAddCmd = &cobra.Command{
 		beadID := args[0]
 		dependsOnID := args[1]
 		depType, _ := cmd.Flags().GetString("type")
+		metadata, _ := cmd.Flags().GetString("metadata")
 
 		dep, err := beadsClient.AddDependency(context.Background(), &client.AddDependencyRequest{
 			BeadID:      beadID,
 			DependsOnID: dependsOnID,
 			Type:        depType,
 			CreatedBy:   actor,
+			Metadata:    metadata,
 		})
 		if err != nil {
 			return fmt.Errorf("adding dependency: %w", err)
@@ -118,6 +120,7 @@ var depListCmd = &cobra.Command{
 
 func init() {
 	depAddCmd.Flags().StringP("type", "t", "blocks", "dependency type")
+	depAddCmd.Flags().StringP("metadata", "m", "", "dependency metadata")
 	depRemoveCmd.Flags().StringP("type", "t", "blocks", "dependency type")
 
 	depCmd.AddCommand(depAddCmd)

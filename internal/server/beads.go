@@ -188,6 +188,9 @@ func (s *BeadsServer) ListBeads(ctx context.Context, req *beadsv1.ListBeadsReque
 	if len(req.GetFieldFilters()) > 0 {
 		filter.Fields = req.GetFieldFilters()
 	}
+	if req.GetNoOpenDeps() {
+		filter.NoOpenDeps = true
+	}
 
 	beads, total, err := s.store.ListBeads(ctx, filter)
 	if err != nil {

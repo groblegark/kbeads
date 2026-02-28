@@ -80,6 +80,9 @@ var contextCmd = &cobra.Command{
 				Limit:    vc.Limit,
 				Priority: vc.Filter.Priority,
 			}
+			if len(vc.Filter.Fields) > 0 {
+				req.FieldFilters = vc.Filter.Fields
+			}
 
 			resp, err := beadsClient.ListBeads(context.Background(), req)
 			if err != nil {

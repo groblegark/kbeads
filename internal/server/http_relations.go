@@ -35,6 +35,7 @@ type addDependencyRequest struct {
 	DependsOnID string `json:"depends_on_id"`
 	Type        string `json:"type"`
 	CreatedBy   string `json:"created_by"`
+	Metadata    string `json:"metadata,omitempty"`
 }
 
 // handleAddDependency handles POST /v1/beads/{id}/dependencies.
@@ -62,6 +63,7 @@ func (s *BeadsServer) handleAddDependency(w http.ResponseWriter, r *http.Request
 		Type:        model.DependencyType(req.Type),
 		CreatedAt:   now,
 		CreatedBy:   req.CreatedBy,
+		Metadata:    req.Metadata,
 	}
 
 	if err := s.store.AddDependency(r.Context(), dep); err != nil {

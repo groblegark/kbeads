@@ -81,6 +81,7 @@ func (s *BeadsServer) AddDependency(ctx context.Context, req *beadsv1.AddDepende
 		Type:        model.DependencyType(req.GetType()),
 		CreatedAt:   now,
 		CreatedBy:   req.GetCreatedBy(),
+		Metadata:    req.GetMetadata(),
 	}
 
 	if err := s.store.AddDependency(ctx, dep); err != nil {
