@@ -8,11 +8,23 @@ type DependencyType string
 
 const (
 	DepBlocks      DependencyType = "blocks"
+	DepChildOf     DependencyType = "child-of"
 	DepParentChild DependencyType = "parent-child"
 	DepRelated     DependencyType = "related"
 	DepDuplicates  DependencyType = "duplicates"
 	DepSupersedes  DependencyType = "supersedes"
 )
+
+// BlockingDepTypes are the dependency types that prevent a bead from being
+// considered "ready". Only these types are checked when filtering with
+// NoOpenDeps or determining if a bead is blocked.
+var BlockingDepTypes = []DependencyType{DepBlocks, DepChildOf}
+
+// IsBlocking reports whether this dependency type prevents the dependent bead
+// from being considered ready while the target bead is still open.
+func (d DependencyType) IsBlocking() bool {
+	return d == DepBlocks || d == DepChildOf
+}
 
 // IsValid reports whether the dependency type is a non-empty string of at most 50 characters.
 // Dependency types are extensible, so any non-empty value within the length limit is accepted.
