@@ -204,6 +204,9 @@ func TestGRPCAddDependency(t *testing.T) {
 
 func TestGRPCRemoveDependency(t *testing.T) {
 	srv, ms, ctx := testCtx(t)
+	ms.deps["kd-a"] = []*model.Dependency{
+		{BeadID: "kd-a", DependsOnID: "kd-b", Type: model.DepBlocks},
+	}
 	if _, err := srv.RemoveDependency(ctx, &beadsv1.RemoveDependencyRequest{
 		BeadId: "kd-a", DependsOnId: "kd-b", Type: "blocks",
 	}); err != nil {

@@ -114,6 +114,10 @@ func (s *BeadsServer) handleRemoveDependency(w http.ResponseWriter, r *http.Requ
 	depType := q.Get("type")
 
 	if err := s.store.RemoveDependency(r.Context(), beadID, dependsOnID, model.DependencyType(depType)); err != nil {
+		if errors.Is(err, store.ErrDependencyNotFound) {
+			writeError(w, http.StatusNotFound, "dependency not found")
+			return
+		}
 		writeError(w, http.StatusInternalServerError, "failed to remove dependency")
 		return
 	}

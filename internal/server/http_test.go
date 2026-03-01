@@ -280,7 +280,7 @@ func (m *mockStore) RemoveDependency(_ context.Context, beadID, dependsOnID stri
 			return nil
 		}
 	}
-	return nil
+	return store.ErrDependencyNotFound
 }
 
 func (m *mockStore) GetDependencies(_ context.Context, beadID string) ([]*model.Dependency, error) {

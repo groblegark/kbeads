@@ -395,12 +395,22 @@ func queryAddDependency(ctx context.Context, db executor, dep *model.Dependency)
 }
 
 func queryRemoveDependency(ctx context.Context, db executor, beadID, dependsOnID string, depType model.DependencyType) error {
-	_, err := db.ExecContext(ctx, `
+	result, err := db.ExecContext(ctx, `
 		DELETE FROM deps
 		WHERE bead_id = $1 AND depends_on_id = $2 AND type = $3`,
 		beadID, dependsOnID, string(depType),
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return store.ErrDependencyNotFound
+	}
+	return nil
 }
 
 func queryGetDependencies(ctx context.Context, db executor, beadID string) ([]*model.Dependency, error) {

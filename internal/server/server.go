@@ -206,6 +206,9 @@ func (s *BeadsServer) RemoveDependency(ctx context.Context, req *beadsv1.RemoveD
 	}
 
 	if err := s.store.RemoveDependency(ctx, req.GetBeadId(), req.GetDependsOnId(), model.DependencyType(req.GetType())); err != nil {
+		if errors.Is(err, store.ErrDependencyNotFound) {
+			return nil, status.Error(codes.NotFound, "dependency not found")
+		}
 		return nil, status.Errorf(codes.Internal, "failed to remove dependency: %v", err)
 	}
 

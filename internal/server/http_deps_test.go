@@ -73,6 +73,20 @@ func TestAddDependency_TransitiveCycle(t *testing.T) {
 	}
 }
 
+func TestRemoveDependency_NotFound(t *testing.T) {
+	_, ms, h := newTestServer()
+	ms.beads["kd-a"] = &model.Bead{ID: "kd-a", Title: "A", Status: model.StatusOpen}
+
+	// No dependency exists between kd-a and kd-b — should return 404.
+	rec := doJSON(t, h, "DELETE", "/v1/beads/kd-a/dependencies?depends_on_id=kd-b&type=blocks", nil)
+	requireStatus(t, rec, 404)
+	var body map[string]string
+	decodeJSON(t, rec, &body)
+	if body["error"] != "dependency not found" {
+		t.Fatalf("expected not found error, got %q", body["error"])
+	}
+}
+
 func TestAddDependency_Duplicate(t *testing.T) {
 	_, ms, h := newTestServer()
 	ms.beads["kd-d1"] = &model.Bead{ID: "kd-d1", Title: "A", Status: model.StatusOpen}
