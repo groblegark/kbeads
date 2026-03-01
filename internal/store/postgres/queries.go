@@ -206,7 +206,7 @@ func queryListBeads(ctx context.Context, db executor, filter model.BeadFilter) (
 	if filter.NoOpenDeps {
 		whereClauses = append(whereClauses,
 			"NOT EXISTS (SELECT 1 FROM deps d JOIN beads dep ON d.depends_on_id = dep.id "+
-				"WHERE d.bead_id = beads.id AND dep.status IN ('open', 'in_progress', 'deferred'))")
+				"WHERE d.bead_id = beads.id AND d.type IN ('blocks', 'child-of') AND dep.status IN ('open', 'in_progress', 'deferred'))")
 	}
 
 	whereSQL := ""

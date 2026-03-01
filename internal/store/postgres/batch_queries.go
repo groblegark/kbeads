@@ -158,7 +158,7 @@ func queryGetBlockedByForBeads(ctx context.Context, db executor, beadIDs []strin
 		FROM deps d
 		JOIN beads blocker ON d.depends_on_id = blocker.id
 		WHERE d.bead_id = ANY($1::text[])
-		  AND d.type = 'blocks'
+		  AND d.type IN ('blocks', 'child-of')
 		  AND blocker.status IN ('open', 'in_progress', 'blocked', 'deferred')`,
 		pq.Array(beadIDs),
 	)

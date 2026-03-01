@@ -566,6 +566,57 @@ func TestHandleGetReady_FiltersBlockedBeads(t *testing.T) {
 	}
 }
 
+func TestHandleGetReady_ChildOfBlocks(t *testing.T) {
+	_, ms, h := newTestServer()
+	now := time.Now()
+	ms.beads["kd-c1"] = &model.Bead{ID: "kd-c1", Title: "Child", Status: model.StatusOpen, CreatedAt: now, UpdatedAt: now}
+	ms.beads["kd-c2"] = &model.Bead{ID: "kd-c2", Title: "Parent epic", Status: model.StatusOpen, CreatedAt: now, UpdatedAt: now}
+	// c1 is child-of c2 (open epic blocks child)
+	ms.deps["kd-c1"] = []*model.Dependency{
+		{BeadID: "kd-c1", DependsOnID: "kd-c2", Type: model.DepChildOf},
+	}
+
+	rec := doJSON(t, h, "GET", "/v1/ready", nil)
+	requireStatus(t, rec, 200)
+
+	var result struct {
+		Beads []*model.Bead `json:"beads"`
+		Total int           `json:"total"`
+	}
+	decodeJSON(t, rec, &result)
+	// c1 should be filtered out (child-of open c2), c2 should remain
+	if result.Total != 1 {
+		t.Fatalf("expected 1 ready bead, got %d", result.Total)
+	}
+	if result.Beads[0].ID != "kd-c2" {
+		t.Fatalf("expected kd-c2, got %s", result.Beads[0].ID)
+	}
+}
+
+func TestHandleGetReady_RelatesDoesNotBlock(t *testing.T) {
+	_, ms, h := newTestServer()
+	now := time.Now()
+	ms.beads["kd-n1"] = &model.Bead{ID: "kd-n1", Title: "Related bead", Status: model.StatusOpen, CreatedAt: now, UpdatedAt: now}
+	ms.beads["kd-n2"] = &model.Bead{ID: "kd-n2", Title: "Other bead", Status: model.StatusOpen, CreatedAt: now, UpdatedAt: now}
+	// n1 relates to n2 — non-blocking
+	ms.deps["kd-n1"] = []*model.Dependency{
+		{BeadID: "kd-n1", DependsOnID: "kd-n2", Type: model.DepRelated},
+	}
+
+	rec := doJSON(t, h, "GET", "/v1/ready", nil)
+	requireStatus(t, rec, 200)
+
+	var result struct {
+		Beads []*model.Bead `json:"beads"`
+		Total int           `json:"total"`
+	}
+	decodeJSON(t, rec, &result)
+	// Both should be ready — "related" does not block
+	if result.Total != 2 {
+		t.Fatalf("expected 2 ready beads, got %d", result.Total)
+	}
+}
+
 func TestHandleGetBlocked_Empty(t *testing.T) {
 	_, _, h := newTestServer()
 	rec := doJSON(t, h, "GET", "/v1/blocked", nil)
