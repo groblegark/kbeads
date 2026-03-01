@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -17,7 +18,16 @@ type NATSPublisher struct {
 }
 
 func NewNATSPublisher(url string) (*NATSPublisher, error) {
-	nc, err := nats.Connect(url)
+	nc, err := nats.Connect(url,
+		nats.MaxReconnects(-1),
+		nats.ReconnectWait(time.Second),
+		nats.DisconnectErrHandler(func(_ *nats.Conn, err error) {
+			slog.Warn("NATS publisher disconnected", "err", err)
+		}),
+		nats.ReconnectHandler(func(nc *nats.Conn) {
+			slog.Info("NATS publisher reconnected", "url", nc.ConnectedUrl())
+		}),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("connecting to NATS at %s: %w", url, err)
 	}
