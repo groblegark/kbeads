@@ -15,7 +15,10 @@ var searchCmd = &cobra.Command{
 	GroupID: "beads",
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		query := strings.Join(args, " ")
+		query := strings.TrimSpace(strings.Join(args, " "))
+		if query == "" {
+			return fmt.Errorf("search query cannot be empty")
+		}
 		status, _ := cmd.Flags().GetStringSlice("status")
 		beadType, _ := cmd.Flags().GetStringSlice("type")
 		kind, _ := cmd.Flags().GetStringSlice("kind")

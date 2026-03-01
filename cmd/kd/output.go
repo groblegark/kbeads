@@ -55,6 +55,23 @@ func printBeadListJSON(beads []*model.Bead) {
 	fmt.Println(string(data))
 }
 
+func printBeadListJSONPaginated(beads []*model.Bead, total, offset, limit int) {
+	if beads == nil {
+		beads = []*model.Bead{}
+	}
+	data, err := json.MarshalIndent(struct {
+		Beads  []*model.Bead `json:"beads"`
+		Total  int           `json:"total"`
+		Offset int           `json:"offset"`
+		Limit  int           `json:"limit"`
+	}{beads, total, offset, limit}, "", "  ")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error marshaling JSON: %v\n", err)
+		return
+	}
+	fmt.Println(string(data))
+}
+
 func printBeadListTable(beads []*model.Bead, total int) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, "ID\tSTATUS\tTYPE\tPRIORITY\tTITLE\tASSIGNEE")

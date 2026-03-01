@@ -69,7 +69,7 @@ var listCmd = &cobra.Command{
 		}
 
 		if jsonOutput {
-			printBeadListJSON(resp.Beads)
+			printBeadListJSONPaginated(resp.Beads, resp.Total, offset, limit)
 		} else {
 			printBeadListTable(resp.Beads, resp.Total)
 		}

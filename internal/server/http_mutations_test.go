@@ -90,6 +90,9 @@ func TestAddDependencyRecordsEvent(t *testing.T) {
 func TestRemoveDependencyRecordsEvent(t *testing.T) {
 	_, ms, h := newTestServer()
 	ms.beads["kd-rdep1"] = &model.Bead{ID: "kd-rdep1", Title: "A", Status: model.StatusOpen}
+	ms.deps["kd-rdep1"] = []*model.Dependency{
+		{BeadID: "kd-rdep1", DependsOnID: "kd-rdep2", Type: model.DepBlocks},
+	}
 
 	rec := doJSON(t, h, "DELETE", "/v1/beads/kd-rdep1/dependencies?depends_on_id=kd-rdep2&type=blocks", nil)
 	requireStatus(t, rec, 204)

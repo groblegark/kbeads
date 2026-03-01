@@ -35,6 +35,11 @@ var claimCmd = &cobra.Command{
 			if err := checkProjectMatch(ctx, id); err != nil {
 				return err
 			}
+
+			// Prevent stealing beads already claimed by another agent.
+			if err := checkNotAlreadyClaimed(ctx, id); err != nil {
+				return err
+			}
 		}
 
 		inProgress := "in_progress"
@@ -92,6 +97,20 @@ func checkNotEpic(ctx context.Context, beadID string) error {
 	}
 	if bead.Type == "epic" {
 		return fmt.Errorf("cannot claim an epic — epics are planning containers, not actionable work.\nClaim an individual task, feature, or bug from this epic instead.\nUse `kd dep list %s` to see the child work items, or `--force` to override.", beadID)
+	}
+	return nil
+}
+
+// checkNotAlreadyClaimed returns an error if the target bead is already
+// in_progress and assigned to a different agent. This prevents one agent from
+// silently stealing another agent's claimed work.
+func checkNotAlreadyClaimed(ctx context.Context, beadID string) error {
+	bead, err := beadsClient.GetBead(ctx, beadID)
+	if err != nil {
+		return nil // Fail open if we can't fetch the bead.
+	}
+	if bead.Status == "in_progress" && bead.Assignee != "" && bead.Assignee != actor {
+		return fmt.Errorf("bead %s is already claimed by %s; use `kd unclaim %s` first, or use --force to reassign", beadID, bead.Assignee, beadID)
 	}
 	return nil
 }

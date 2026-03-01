@@ -2,9 +2,18 @@ package store
 
 import (
 	"context"
+	"errors"
 
 	"github.com/groblegark/kbeads/internal/model"
 )
+
+// ErrDuplicateDependency is returned when attempting to add a dependency
+// that already exists (same bead_id, depends_on_id, type).
+var ErrDuplicateDependency = errors.New("dependency already exists")
+
+// ErrDependencyNotFound is returned when attempting to remove a dependency
+// that does not exist.
+var ErrDependencyNotFound = errors.New("dependency not found")
 
 // Store defines the persistence interface for beads.
 type Store interface {

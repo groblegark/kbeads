@@ -263,6 +263,11 @@ func (m *mockStore) GetBeadsByIDs(_ context.Context, ids []string) ([]*model.Bea
 }
 
 func (m *mockStore) AddDependency(_ context.Context, dep *model.Dependency) error {
+	for _, d := range m.deps[dep.BeadID] {
+		if d.DependsOnID == dep.DependsOnID && d.Type == dep.Type {
+			return store.ErrDuplicateDependency
+		}
+	}
 	m.deps[dep.BeadID] = append(m.deps[dep.BeadID], dep)
 	return nil
 }
@@ -275,7 +280,7 @@ func (m *mockStore) RemoveDependency(_ context.Context, beadID, dependsOnID stri
 			return nil
 		}
 	}
-	return nil
+	return store.ErrDependencyNotFound
 }
 
 func (m *mockStore) GetDependencies(_ context.Context, beadID string) ([]*model.Dependency, error) {
