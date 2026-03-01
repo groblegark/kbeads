@@ -132,6 +132,7 @@ func init() {
 	rootCmd.AddCommand(childrenCmd)
 	rootCmd.AddCommand(adviceCmd)
 	rootCmd.AddCommand(jackCmd)
+	rootCmd.AddCommand(templateCmd)
 
 	// System
 	rootCmd.AddCommand(serveCmd)
