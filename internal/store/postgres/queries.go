@@ -3,10 +3,12 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/groblegark/kbeads/internal/model"
+	"github.com/groblegark/kbeads/internal/store"
 	"github.com/lib/pq"
 )
 
@@ -382,7 +384,14 @@ func queryAddDependency(ctx context.Context, db executor, dep *model.Dependency)
 		dep.CreatedBy,
 		dep.Metadata,
 	)
-	return err
+	if err != nil {
+		var pqErr *pq.Error
+		if errors.As(err, &pqErr) && pqErr.Code == "23505" {
+			return store.ErrDuplicateDependency
+		}
+		return err
+	}
+	return nil
 }
 
 func queryRemoveDependency(ctx context.Context, db executor, beadID, dependsOnID string, depType model.DependencyType) error {

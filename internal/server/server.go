@@ -3,6 +3,8 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -106,6 +108,68 @@ type inputError string
 
 func (e inputError) Error() string { return string(e) }
 
+// addDependency validates and persists a new dependency, then publishes an event.
+// It rejects self-references, cycles, and returns store.ErrDuplicateDependency
+// for duplicates.
+func (s *BeadsServer) addDependency(ctx context.Context, beadID, dependsOnID, depType, createdBy string) (*model.Dependency, error) {
+	if beadID == dependsOnID {
+		return nil, inputError("cannot add dependency: bead cannot depend on itself")
+	}
+
+	// Cycle detection: walk forward from dependsOnID and check if beadID is reachable.
+	if hasCycle, err := s.wouldCreateCycle(ctx, beadID, dependsOnID); err != nil {
+		return nil, fmt.Errorf("cycle check failed: %w", err)
+	} else if hasCycle {
+		return nil, inputError("cannot add dependency: would create a cycle")
+	}
+
+	now := time.Now().UTC()
+	dep := &model.Dependency{
+		BeadID:      beadID,
+		DependsOnID: dependsOnID,
+		Type:        model.DependencyType(depType),
+		CreatedAt:   now,
+		CreatedBy:   createdBy,
+	}
+
+	if err := s.store.AddDependency(ctx, dep); err != nil {
+		return nil, err
+	}
+
+	s.recordAndPublish(ctx, events.TopicDependencyAdded, dep.BeadID, dep.CreatedBy, events.DependencyAdded{Dependency: dep})
+
+	return dep, nil
+}
+
+// wouldCreateCycle checks whether adding an edge from beadID → dependsOnID
+// would create a cycle. It does BFS from dependsOnID following forward
+// dependencies to see if beadID is reachable.
+func (s *BeadsServer) wouldCreateCycle(ctx context.Context, beadID, dependsOnID string) (bool, error) {
+	visited := map[string]bool{dependsOnID: true}
+	queue := []string{dependsOnID}
+
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+
+		deps, err := s.store.GetDependencies(ctx, current)
+		if err != nil {
+			return false, err
+		}
+		for _, d := range deps {
+			if d.DependsOnID == beadID {
+				return true, nil
+			}
+			if !visited[d.DependsOnID] {
+				visited[d.DependsOnID] = true
+				queue = append(queue, d.DependsOnID)
+			}
+		}
+	}
+
+	return false, nil
+}
+
 // AddDependency creates a dependency between two beads.
 func (s *BeadsServer) AddDependency(ctx context.Context, req *beadsv1.AddDependencyRequest) (*beadsv1.AddDependencyResponse, error) {
 	if req.GetBeadId() == "" {
@@ -115,20 +179,17 @@ func (s *BeadsServer) AddDependency(ctx context.Context, req *beadsv1.AddDepende
 		return nil, status.Error(codes.InvalidArgument, "depends_on_id is required")
 	}
 
-	now := time.Now().UTC()
-	dep := &model.Dependency{
-		BeadID:      req.GetBeadId(),
-		DependsOnID: req.GetDependsOnId(),
-		Type:        model.DependencyType(req.GetType()),
-		CreatedAt:   now,
-		CreatedBy:   req.GetCreatedBy(),
-	}
-
-	if err := s.store.AddDependency(ctx, dep); err != nil {
+	dep, err := s.addDependency(ctx, req.GetBeadId(), req.GetDependsOnId(), req.GetType(), req.GetCreatedBy())
+	if err != nil {
+		var ie inputError
+		if errors.As(err, &ie) {
+			return nil, status.Error(codes.InvalidArgument, ie.Error())
+		}
+		if errors.Is(err, store.ErrDuplicateDependency) {
+			return nil, status.Error(codes.AlreadyExists, "dependency already exists")
+		}
 		return nil, status.Errorf(codes.Internal, "failed to add dependency: %v", err)
 	}
-
-	s.recordAndPublish(ctx, events.TopicDependencyAdded, dep.BeadID, dep.CreatedBy, events.DependencyAdded{Dependency: dep})
 
 	return &beadsv1.AddDependencyResponse{
 		Dependency: dependencyToProto(dep),

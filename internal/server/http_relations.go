@@ -2,11 +2,13 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
 	"github.com/groblegark/kbeads/internal/events"
 	"github.com/groblegark/kbeads/internal/model"
+	"github.com/groblegark/kbeads/internal/store"
 )
 
 // handleGetDependencies handles GET /v1/beads/{id}/dependencies.
@@ -76,21 +78,20 @@ func (s *BeadsServer) handleAddDependency(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	now := time.Now().UTC()
-	dep := &model.Dependency{
-		BeadID:      beadID,
-		DependsOnID: req.DependsOnID,
-		Type:        model.DependencyType(req.Type),
-		CreatedAt:   now,
-		CreatedBy:   req.CreatedBy,
-	}
-
-	if err := s.store.AddDependency(r.Context(), dep); err != nil {
+	dep, err := s.addDependency(r.Context(), beadID, req.DependsOnID, req.Type, req.CreatedBy)
+	if err != nil {
+		var ie inputError
+		if errors.As(err, &ie) {
+			writeError(w, http.StatusBadRequest, ie.Error())
+			return
+		}
+		if errors.Is(err, store.ErrDuplicateDependency) {
+			writeError(w, http.StatusConflict, "dependency already exists")
+			return
+		}
 		writeError(w, http.StatusInternalServerError, "failed to add dependency")
 		return
 	}
-
-	s.recordAndPublish(r.Context(), events.TopicDependencyAdded, dep.BeadID, dep.CreatedBy, events.DependencyAdded{Dependency: dep})
 
 	writeJSON(w, http.StatusCreated, dep)
 }
