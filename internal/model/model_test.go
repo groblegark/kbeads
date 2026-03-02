@@ -112,8 +112,10 @@ func TestKindFor(t *testing.T) {
 		{TypeFeature, KindIssue},
 		{TypeChore, KindIssue},
 		{TypeBug, KindIssue},
+		{TypeMolecule, KindIssue},
 		{TypeAdvice, KindData},
 		{TypeJack, KindData},
+		{TypeFormula, KindData},
 		{TypeDecision, Kind("")},
 		{TypeReport, Kind("")},
 		{BeadType("workflow"), Kind("")},
@@ -121,6 +123,32 @@ func TestKindFor(t *testing.T) {
 	} {
 		if got := KindFor(tc.typ); got != tc.want {
 			t.Errorf("KindFor(%q) = %q, want %q", tc.typ, got, tc.want)
+		}
+	}
+}
+
+func TestTypeAliases(t *testing.T) {
+	for _, tc := range []struct {
+		deprecated BeadType
+		canonical  BeadType
+	}{
+		{"template", TypeFormula},
+		{"bundle", TypeMolecule},
+	} {
+		got, ok := TypeAliases[tc.deprecated]
+		if !ok {
+			t.Errorf("TypeAliases[%q] not found", tc.deprecated)
+			continue
+		}
+		if got != tc.canonical {
+			t.Errorf("TypeAliases[%q] = %q, want %q", tc.deprecated, got, tc.canonical)
+		}
+	}
+
+	// Canonical types should not be aliased.
+	for _, canonical := range []BeadType{TypeFormula, TypeMolecule} {
+		if _, ok := TypeAliases[canonical]; ok {
+			t.Errorf("TypeAliases[%q] should not exist; canonical types must not alias", canonical)
 		}
 	}
 }
