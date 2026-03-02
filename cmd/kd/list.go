@@ -30,6 +30,7 @@ var listCmd = &cobra.Command{
 		noBlockers, _ := cmd.Flags().GetBool("no-blockers")
 		sort, _ := cmd.Flags().GetString("sort")
 		allTypes, _ := cmd.Flags().GetBool("all-types")
+		labelFlags, _ := cmd.Flags().GetStringSlice("label")
 
 		// Default to kind=issue when no explicit type, kind, or all-types flag is set.
 		if !allTypes && len(beadType) == 0 && len(kind) == 0 {
@@ -50,6 +51,7 @@ var listCmd = &cobra.Command{
 		if !listAllProjectsFlag && listProjectFlag != "" {
 			req.Labels = append(req.Labels, "project:"+listProjectFlag)
 		}
+		req.Labels = append(req.Labels, labelFlags...)
 
 		if len(fieldFlags) > 0 {
 			req.FieldFilters = make(map[string]string, len(fieldFlags))
@@ -85,6 +87,7 @@ func init() {
 	listCmd.Flags().String("assignee", "", "filter by assignee")
 	listCmd.Flags().Int("offset", 0, "offset for pagination")
 	listCmd.Flags().StringArrayP("field", "f", nil, "filter by custom field (key=value, repeatable)")
+	listCmd.Flags().StringSliceP("label", "l", nil, "filter by label (repeatable, e.g. --label source:jira --label jira-has-media)")
 	listCmd.Flags().Bool("no-blockers", false, "only show beads with no open/in_progress/deferred dependencies")
 	listCmd.Flags().String("sort", "", "sort column: priority, created_at, updated_at, title, status, type (prefix with - for descending, e.g. -priority)")
 	listCmd.Flags().StringVar(&listProjectFlag, "project", defaultProject(), "filter by project label (default: $KD_PROJECT or $BOAT_PROJECT)")
