@@ -11,23 +11,23 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var templateApplyCmd = &cobra.Command{
-	Use:   "apply <template-id>",
-	Short: "Apply a template to create a bundle of beads",
-	Long: `Apply a template to create a bundle (an epic with child beads).
+var formulaApplyCmd = &cobra.Command{
+	Use:   "apply <formula-id>",
+	Short: "Apply a formula to create a molecule of beads",
+	Long: `Apply a formula to create a molecule (an epic with child beads).
 
 The 3-step pipeline:
-  1. Resolve — fetch the template and parse its vars/steps
+  1. Resolve — fetch the formula and parse its vars/steps
   2. Expand  — substitute {{variables}} with provided values
-  3. Create  — create the bundle bead and child issue beads
+  3. Create  — create the molecule bead and child issue beads
 
 Examples:
-  kd template apply kd-abc123 --var component=auth --var assignee=alice
-  kd template apply kd-abc123 --var component=auth --dry-run
-  kd template apply kd-abc123 --var component=auth --label project:gasboat`,
+  kd formula apply kd-abc123 --var component=auth --var assignee=alice
+  kd formula apply kd-abc123 --var component=auth --dry-run
+  kd formula apply kd-abc123 --var component=auth --label project:gasboat`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		templateID := args[0]
+		formulaID := args[0]
 		varPairs, _ := cmd.Flags().GetStringSlice("var")
 		labels, _ := cmd.Flags().GetStringSlice("label")
 		dryRun, _ := cmd.Flags().GetBool("dry-run")
@@ -36,26 +36,27 @@ Examples:
 		ctx := context.Background()
 
 		// ── Step 1: Resolve ─────────────────────────────────────
-		bead, err := beadsClient.GetBead(ctx, templateID)
+		bead, err := beadsClient.GetBead(ctx, formulaID)
 		if err != nil {
-			return fmt.Errorf("resolving template: %w", err)
+			return fmt.Errorf("resolving formula: %w", err)
 		}
-		if string(bead.Type) != "template" {
-			return fmt.Errorf("bead %s is type %q, not template", templateID, bead.Type)
+		// Accept both "formula" and legacy "template" type.
+		if string(bead.Type) != "formula" && string(bead.Type) != "template" {
+			return fmt.Errorf("bead %s is type %q, not formula", formulaID, bead.Type)
 		}
 
 		var fields struct {
-			Vars  []TemplateVarDef `json:"vars"`
-			Steps []TemplateStep   `json:"steps"`
+			Vars  []FormulaVarDef `json:"vars"`
+			Steps []FormulaStep   `json:"steps"`
 		}
 		if len(bead.Fields) == 0 {
-			return fmt.Errorf("template %s has no fields (empty template)", templateID)
+			return fmt.Errorf("formula %s has no fields (empty formula)", formulaID)
 		}
 		if err := json.Unmarshal(bead.Fields, &fields); err != nil {
-			return fmt.Errorf("parsing template fields: %w", err)
+			return fmt.Errorf("parsing formula fields: %w", err)
 		}
 		if len(fields.Steps) == 0 {
-			return fmt.Errorf("template %s has no steps", templateID)
+			return fmt.Errorf("formula %s has no steps", formulaID)
 		}
 
 		// Parse --var key=value pairs.
@@ -96,13 +97,13 @@ Examples:
 
 		// ── Step 2: Expand ──────────────────────────────────────
 		type expandedStep struct {
-			TemplateStep
+			FormulaStep
 			skip bool // condition evaluated to false
 		}
 
 		expanded := make([]expandedStep, 0, len(fields.Steps))
 		for _, s := range fields.Steps {
-			es := expandedStep{TemplateStep: s}
+			es := expandedStep{FormulaStep: s}
 
 			// Evaluate condition.
 			if s.Condition != "" {
@@ -149,10 +150,10 @@ Examples:
 
 		// ── Dry run ─────────────────────────────────────────────
 		if dryRun {
-			fmt.Printf("Template: %s (%s)\n", bead.Title, templateID)
+			fmt.Printf("Formula: %s (%s)\n", bead.Title, formulaID)
 			fmt.Printf("Variables: %v\n\n", vars)
 			fmt.Println("Would create:")
-			fmt.Printf("  Bundle: %s\n", substituteVars(bead.Title, vars))
+			fmt.Printf("  Molecule: %s\n", substituteVars(bead.Title, vars))
 			for _, s := range active {
 				typ := s.Type
 				if typ == "" {
@@ -164,35 +165,35 @@ Examples:
 				}
 				fmt.Printf("  Step %s: %s [%s]%s\n", s.ID, s.Title, typ, deps)
 			}
-			fmt.Printf("\nTotal: 1 bundle + %d steps\n", len(active))
+			fmt.Printf("\nTotal: 1 molecule + %d steps\n", len(active))
 			return nil
 		}
 
 		// ── Step 3: Create ──────────────────────────────────────
 
-		// Create the root bundle bead.
-		bundleTitle := substituteVars(bead.Title, vars)
+		// Create the root molecule bead.
+		molTitle := substituteVars(bead.Title, vars)
 		appliedVarsJSON, _ := json.Marshal(vars)
-		bundleFields := map[string]any{
-			"template_id":  templateID,
+		molFields := map[string]any{
+			"formula_id":  formulaID,
 			"applied_vars": json.RawMessage(appliedVarsJSON),
 		}
-		bundleFieldsJSON, _ := json.Marshal(bundleFields)
+		molFieldsJSON, _ := json.Marshal(molFields)
 
-		bundleReq := &client.CreateBeadRequest{
-			Title:       bundleTitle,
+		molReq := &client.CreateBeadRequest{
+			Title:       molTitle,
 			Description: substituteVars(bead.Description, vars),
-			Type:        "bundle",
+			Type:        "molecule",
 			Priority:    bead.Priority,
 			Labels:      labels,
 			Assignee:    assignee,
 			CreatedBy:   actor,
-			Fields:      bundleFieldsJSON,
+			Fields:      molFieldsJSON,
 		}
 
-		bundle, err := beadsClient.CreateBead(ctx, bundleReq)
+		mol, err := beadsClient.CreateBead(ctx, molReq)
 		if err != nil {
-			return fmt.Errorf("creating bundle: %w", err)
+			return fmt.Errorf("creating molecule: %w", err)
 		}
 
 		// Create child beads for each step.
@@ -224,15 +225,15 @@ Examples:
 			}
 			stepBeadIDs[s.ID] = stepBead.ID
 
-			// Add parent-child dep to bundle.
+			// Add parent-child dep to molecule.
 			_, err = beadsClient.AddDependency(ctx, &client.AddDependencyRequest{
 				BeadID:      stepBead.ID,
-				DependsOnID: bundle.ID,
+				DependsOnID: mol.ID,
 				Type:        "parent-child",
 				CreatedBy:   actor,
 			})
 			if err != nil {
-				return fmt.Errorf("linking step %q to bundle: %w", s.ID, err)
+				return fmt.Errorf("linking step %q to molecule: %w", s.ID, err)
 			}
 		}
 
@@ -258,15 +259,15 @@ Examples:
 		// Output results.
 		if jsonOutput {
 			result := map[string]any{
-				"bundle": bundle,
-				"steps":  stepBeadIDs,
+				"molecule": mol,
+				"steps":    stepBeadIDs,
 			}
 			data, _ := json.MarshalIndent(result, "", "  ")
 			fmt.Println(string(data))
 		} else {
-			fmt.Printf("Created bundle %s: %s\n", bundle.ID, bundle.Title)
-			fmt.Printf("  Template: %s\n", templateID)
-			fmt.Printf("  Steps:    %d\n", len(active))
+			fmt.Printf("Created molecule %s: %s\n", mol.ID, mol.Title)
+			fmt.Printf("  Formula: %s\n", formulaID)
+			fmt.Printf("  Steps:   %d\n", len(active))
 			for _, s := range active {
 				fmt.Printf("    %s → %s: %s\n", s.ID, stepBeadIDs[s.ID], s.Title)
 			}
@@ -362,9 +363,8 @@ func mergeLabels(base, extra []string) []string {
 }
 
 func init() {
-	templateApplyCmd.Flags().StringSlice("var", nil, "variable substitution (key=value, repeatable)")
-	templateApplyCmd.Flags().StringSliceP("label", "l", nil, "labels for created beads (repeatable)")
-	templateApplyCmd.Flags().String("assignee", "", "default assignee for created beads")
-	templateApplyCmd.Flags().Bool("dry-run", false, "preview what would be created without creating anything")
+	formulaApplyCmd.Flags().StringSlice("var", nil, "variable substitution (key=value, repeatable)")
+	formulaApplyCmd.Flags().StringSliceP("label", "l", nil, "labels for created beads (repeatable)")
+	formulaApplyCmd.Flags().String("assignee", "", "default assignee for created beads")
+	formulaApplyCmd.Flags().Bool("dry-run", false, "preview what would be created without creating anything")
 }
-

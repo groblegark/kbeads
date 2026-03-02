@@ -8,9 +8,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var bundleShowCmd = &cobra.Command{
-	Use:   "show <bundle-id>",
-	Short: "Show bundle details with its child beads",
+var molShowCmd = &cobra.Command{
+	Use:   "show <molecule-id>",
+	Short: "Show molecule details with its child beads",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id := args[0]
@@ -18,11 +18,12 @@ var bundleShowCmd = &cobra.Command{
 
 		bead, err := beadsClient.GetBead(ctx, id)
 		if err != nil {
-			return fmt.Errorf("getting bundle: %w", err)
+			return fmt.Errorf("getting molecule: %w", err)
 		}
 
-		if string(bead.Type) != "bundle" {
-			return fmt.Errorf("bead %s is type %q, not bundle", id, bead.Type)
+		// Accept both "molecule" and legacy "bundle" type.
+		if string(bead.Type) != "molecule" && string(bead.Type) != "bundle" {
+			return fmt.Errorf("bead %s is type %q, not molecule", id, bead.Type)
 		}
 
 		if jsonOutput {
@@ -32,15 +33,20 @@ var bundleShowCmd = &cobra.Command{
 
 		printBeadTable(bead)
 
-		// Show template source.
+		// Show formula source.
 		if len(bead.Fields) > 0 {
 			var fields struct {
+				FormulaID   string          `json:"formula_id"`
 				TemplateID  string          `json:"template_id"`
 				AppliedVars json.RawMessage `json:"applied_vars"`
 			}
 			if json.Unmarshal(bead.Fields, &fields) == nil {
-				if fields.TemplateID != "" {
-					fmt.Printf("\nTemplate:    %s\n", fields.TemplateID)
+				sourceID := fields.FormulaID
+				if sourceID == "" {
+					sourceID = fields.TemplateID
+				}
+				if sourceID != "" {
+					fmt.Printf("\nFormula:     %s\n", sourceID)
 				}
 				if len(fields.AppliedVars) > 0 {
 					var vars map[string]string

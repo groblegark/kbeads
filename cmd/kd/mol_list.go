@@ -12,15 +12,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var bundleListCmd = &cobra.Command{
+var molListCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List bundles",
-	Long: `List bundles (instantiated templates).
+	Short: "List molecules",
+	Long: `List molecules (instantiated formulas).
 
 Examples:
-  kd bundle list
-  kd bundle list --label project:gasboat
-  kd bundle list --status closed`,
+  kd mol list
+  kd mol list --label project:gasboat
+  kd mol list --status closed`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		labels, _ := cmd.Flags().GetStringSlice("label")
 		statuses, _ := cmd.Flags().GetStringSlice("status")
@@ -30,7 +30,7 @@ Examples:
 		}
 
 		req := &client.ListBeadsRequest{
-			Type:   []string{"bundle"},
+			Type:   []string{"molecule"},
 			Status: statuses,
 			Labels: labels,
 			Limit:  100,
@@ -38,56 +38,60 @@ Examples:
 
 		resp, err := beadsClient.ListBeads(context.Background(), req)
 		if err != nil {
-			return fmt.Errorf("listing bundles: %w", err)
+			return fmt.Errorf("listing molecules: %w", err)
 		}
 
 		if jsonOutput {
 			printBeadListJSON(resp.Beads)
 		} else {
-			printBundleList(resp.Beads, resp.Total)
+			printMolList(resp.Beads, resp.Total)
 		}
 		return nil
 	},
 }
 
-func printBundleList(beads []*model.Bead, total int) {
+func printMolList(beads []*model.Bead, total int) {
 	if len(beads) == 0 {
-		fmt.Println("No bundles found.")
+		fmt.Println("No molecules found.")
 		return
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "ID\tSTATUS\tTITLE\tTEMPLATE\tASSIGNEE")
+	fmt.Fprintln(w, "ID\tSTATUS\tTITLE\tFORMULA\tASSIGNEE")
 	for _, b := range beads {
 		title := b.Title
 		if len(title) > 40 {
 			title = title[:37] + "..."
 		}
 
-		templateID := bundleTemplateID(b)
+		formulaID := molFormulaID(b)
 
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
-			b.ID, b.Status, title, templateID, b.Assignee)
+			b.ID, b.Status, title, formulaID, b.Assignee)
 	}
 	w.Flush()
-	fmt.Printf("\n%d bundles (%d total)\n", len(beads), total)
+	fmt.Printf("\n%d molecules (%d total)\n", len(beads), total)
 }
 
-// bundleTemplateID extracts the template_id from a bundle bead's fields.
-func bundleTemplateID(b *model.Bead) string {
+// molFormulaID extracts the formula_id (or legacy template_id) from a molecule's fields.
+func molFormulaID(b *model.Bead) string {
 	if len(b.Fields) == 0 {
 		return ""
 	}
 	var f struct {
+		FormulaID  string `json:"formula_id"`
 		TemplateID string `json:"template_id"`
 	}
 	if json.Unmarshal(b.Fields, &f) == nil {
+		if f.FormulaID != "" {
+			return f.FormulaID
+		}
 		return f.TemplateID
 	}
 	return ""
 }
 
 func init() {
-	bundleListCmd.Flags().StringSliceP("label", "l", nil, "filter by label (repeatable)")
-	bundleListCmd.Flags().StringSliceP("status", "s", nil, "filter by status (default: open, in_progress)")
+	molListCmd.Flags().StringSliceP("label", "l", nil, "filter by label (repeatable)")
+	molListCmd.Flags().StringSliceP("status", "s", nil, "filter by status (default: open, in_progress)")
 }

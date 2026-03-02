@@ -137,8 +137,10 @@ func init() {
 	rootCmd.AddCommand(childrenCmd)
 	rootCmd.AddCommand(adviceCmd)
 	rootCmd.AddCommand(jackCmd)
-	rootCmd.AddCommand(templateCmd)
-	rootCmd.AddCommand(bundleCmd)
+	rootCmd.AddCommand(formulaCmd)
+	rootCmd.AddCommand(molCmd)
+	rootCmd.AddCommand(templateCmd) // hidden alias
+	rootCmd.AddCommand(bundleCmd)   // hidden alias
 
 	// System
 	rootCmd.AddCommand(serveCmd)
