@@ -19,13 +19,18 @@ var bundleCmd = &cobra.Command{
 }
 
 func init() {
-	// Register on hidden alias first, then primary — Cobra uses last parent
-	// for Usage line, so primary command shows the correct path.
+	// Register on hidden alias first, then primary.
 	bundleCmd.AddCommand(newPourCmd())
 	bundleCmd.AddCommand(newWispCmd())
+	bundleCmd.AddCommand(newBurnCmd())
+	bundleCmd.AddCommand(newSquashCmd())
+	bundleCmd.AddCommand(newBondCmd())
 
 	molCmd.AddCommand(molListCmd)
 	molCmd.AddCommand(molShowCmd)
 	molCmd.AddCommand(newPourCmd())
 	molCmd.AddCommand(newWispCmd())
+	molCmd.AddCommand(newBurnCmd())
+	molCmd.AddCommand(newSquashCmd())
+	molCmd.AddCommand(newBondCmd())
 }
