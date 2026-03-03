@@ -10,8 +10,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// TemplateVarDef defines a variable that a template accepts.
-type TemplateVarDef struct {
+// FormulaVarDef defines a variable that a formula accepts.
+type FormulaVarDef struct {
 	Name        string   `json:"name"`
 	Description string   `json:"description,omitempty"`
 	Required    bool     `json:"required,omitempty"`
@@ -20,8 +20,8 @@ type TemplateVarDef struct {
 	Enum        []string `json:"enum,omitempty"`
 }
 
-// TemplateStep defines a work item to create when a template is applied.
-type TemplateStep struct {
+// FormulaStep defines a work item to create when a formula is applied.
+type FormulaStep struct {
 	ID          string   `json:"id"`
 	Title       string   `json:"title"`
 	Description string   `json:"description,omitempty"`
@@ -33,12 +33,12 @@ type TemplateStep struct {
 	Condition   string   `json:"condition,omitempty"`
 }
 
-var templateCreateCmd = &cobra.Command{
+var formulaCreateCmd = &cobra.Command{
 	Use:   "create <name>",
-	Short: "Create a template from a JSON definition",
-	Long: `Create a reusable template bead from a JSON file or inline JSON.
+	Short: "Create a formula from a JSON definition",
+	Long: `Create a reusable formula bead from a JSON file or inline JSON.
 
-The template content is a JSON object with "vars" and "steps" arrays:
+The formula content is a JSON object with "vars" and "steps" arrays:
 
   {
     "vars": [
@@ -53,9 +53,9 @@ The template content is a JSON object with "vars" and "steps" arrays:
 Step titles and descriptions support {{variable}} substitution.
 
 Examples:
-  kd template create "Feature workflow" --file template.json
-  kd template create "Bug fix" --file bugfix.json --label project:gasboat
-  echo '{"steps":[...]}' | kd template create "Quick template" --file -`,
+  kd formula create "Feature workflow" --file formula.json
+  kd formula create "Bug fix" --file bugfix.json --label project:gasboat
+  echo '{"steps":[...]}' | kd formula create "Quick formula" --file -`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		name := args[0]
@@ -77,20 +77,20 @@ Examples:
 			data, err = os.ReadFile(filePath)
 		}
 		if err != nil {
-			return fmt.Errorf("reading template file: %w", err)
+			return fmt.Errorf("reading formula file: %w", err)
 		}
 
-		// Parse and validate the template content.
+		// Parse and validate the formula content.
 		var content struct {
-			Vars  []TemplateVarDef `json:"vars"`
-			Steps []TemplateStep   `json:"steps"`
+			Vars  []FormulaVarDef `json:"vars"`
+			Steps []FormulaStep   `json:"steps"`
 		}
 		if err := json.Unmarshal(data, &content); err != nil {
-			return fmt.Errorf("parsing template JSON: %w", err)
+			return fmt.Errorf("parsing formula JSON: %w", err)
 		}
 
 		if len(content.Steps) == 0 {
-			return fmt.Errorf("template must have at least one step")
+			return fmt.Errorf("formula must have at least one step")
 		}
 
 		// Validate step IDs are unique and depends_on references exist.
@@ -128,7 +128,7 @@ Examples:
 		req := &client.CreateBeadRequest{
 			Title:       name,
 			Description: description,
-			Type:        "template",
+			Type:        "formula",
 			Priority:    priority,
 			Labels:      labels,
 			CreatedBy:   actor,
@@ -137,13 +137,13 @@ Examples:
 
 		bead, err := beadsClient.CreateBead(context.Background(), req)
 		if err != nil {
-			return fmt.Errorf("creating template: %w", err)
+			return fmt.Errorf("creating formula: %w", err)
 		}
 
 		if jsonOutput {
 			printBeadJSON(bead)
 		} else {
-			fmt.Printf("Created template %s: %s\n", bead.ID, bead.Title)
+			fmt.Printf("Created formula %s: %s\n", bead.ID, bead.Title)
 			fmt.Printf("  Steps: %d\n", len(content.Steps))
 			fmt.Printf("  Vars:  %d\n", len(content.Vars))
 		}
@@ -152,8 +152,8 @@ Examples:
 }
 
 func init() {
-	templateCreateCmd.Flags().StringP("file", "f", "", "JSON file with template definition (use - for stdin)")
-	templateCreateCmd.Flags().StringP("description", "d", "", "template description")
-	templateCreateCmd.Flags().IntP("priority", "p", 2, "priority (0-4)")
-	templateCreateCmd.Flags().StringSliceP("label", "l", nil, "labels (repeatable)")
+	formulaCreateCmd.Flags().StringP("file", "f", "", "JSON file with formula definition (use - for stdin)")
+	formulaCreateCmd.Flags().StringP("description", "d", "", "formula description")
+	formulaCreateCmd.Flags().IntP("priority", "p", 2, "priority (0-4)")
+	formulaCreateCmd.Flags().StringSliceP("label", "l", nil, "labels (repeatable)")
 }

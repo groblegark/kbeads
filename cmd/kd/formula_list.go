@@ -13,20 +13,20 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var templateListCmd = &cobra.Command{
+var formulaListCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List templates",
-	Long: `List available templates.
+	Short: "List formulas",
+	Long: `List available formulas.
 
 Examples:
-  kd template list
-  kd template list --label project:gasboat
-  kd template list --json`,
+  kd formula list
+  kd formula list --label project:gasboat
+  kd formula list --json`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		labels, _ := cmd.Flags().GetStringSlice("label")
 
 		req := &client.ListBeadsRequest{
-			Type:   []string{"template"},
+			Type:   []string{"formula"},
 			Status: []string{"open", "in_progress"},
 			Labels: labels,
 			Limit:  100,
@@ -34,21 +34,21 @@ Examples:
 
 		resp, err := beadsClient.ListBeads(context.Background(), req)
 		if err != nil {
-			return fmt.Errorf("listing templates: %w", err)
+			return fmt.Errorf("listing formulas: %w", err)
 		}
 
 		if jsonOutput {
 			printBeadListJSON(resp.Beads)
 		} else {
-			printTemplateList(resp.Beads, resp.Total)
+			printFormulaList(resp.Beads, resp.Total)
 		}
 		return nil
 	},
 }
 
-func printTemplateList(beads []*model.Bead, total int) {
+func printFormulaList(beads []*model.Bead, total int) {
 	if len(beads) == 0 {
-		fmt.Println("No templates found.")
+		fmt.Println("No formulas found.")
 		return
 	}
 
@@ -60,17 +60,17 @@ func printTemplateList(beads []*model.Bead, total int) {
 			title = title[:47] + "..."
 		}
 
-		steps, vars := templateFieldCounts(b)
+		steps, vars := formulaFieldCounts(b)
 		lblStr := strings.Join(b.Labels, ", ")
 
 		fmt.Fprintf(w, "%s\t%s\t%d\t%d\t%s\n", b.ID, title, steps, vars, lblStr)
 	}
 	w.Flush()
-	fmt.Printf("\n%d templates (%d total)\n", len(beads), total)
+	fmt.Printf("\n%d formulas (%d total)\n", len(beads), total)
 }
 
-// templateFieldCounts extracts step and var counts from a template bead's fields.
-func templateFieldCounts(b *model.Bead) (steps int, vars int) {
+// formulaFieldCounts extracts step and var counts from a formula bead's fields.
+func formulaFieldCounts(b *model.Bead) (steps int, vars int) {
 	if len(b.Fields) == 0 {
 		return 0, 0
 	}
@@ -86,5 +86,5 @@ func templateFieldCounts(b *model.Bead) (steps int, vars int) {
 }
 
 func init() {
-	templateListCmd.Flags().StringSliceP("label", "l", nil, "filter by label (repeatable)")
+	formulaListCmd.Flags().StringSliceP("label", "l", nil, "filter by label (repeatable)")
 }

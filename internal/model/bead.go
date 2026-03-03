@@ -48,7 +48,11 @@ const (
 	TypeJack     BeadType = "jack"
 	TypeDecision BeadType = "decision"
 	TypeReport   BeadType = "report"
+	TypeFormula  BeadType = "formula"
 )
+
+// Molecule is an issue-kind type (instantiated formula, acts as an epic).
+const TypeMolecule BeadType = "molecule"
 
 // String returns the string representation of the bead type.
 func (t BeadType) String() string {
@@ -65,13 +69,20 @@ func (t BeadType) IsValid() bool {
 // For unknown types it returns an empty string; the caller decides how to handle that.
 func KindFor(t BeadType) Kind {
 	switch t {
-	case TypeEpic, TypeTask, TypeFeature, TypeChore, TypeBug:
+	case TypeEpic, TypeTask, TypeFeature, TypeChore, TypeBug, TypeMolecule:
 		return KindIssue
-	case TypeAdvice, TypeJack:
+	case TypeAdvice, TypeJack, TypeFormula:
 		return KindData
 	default:
 		return ""
 	}
+}
+
+// TypeAliases maps deprecated type names to their canonical replacements.
+// "template" → "formula", "bundle" → "molecule".
+var TypeAliases = map[BeadType]BeadType{
+	"template": TypeFormula,
+	"bundle":   TypeMolecule,
 }
 
 // Status represents the current state of a bead.

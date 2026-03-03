@@ -50,6 +50,11 @@ func (s *BeadsServer) createBead(ctx context.Context, in createBeadInput) (*mode
 
 	beadType := model.BeadType(in.Type)
 
+	// Resolve deprecated type aliases (template→formula, bundle→molecule).
+	if canonical, ok := model.TypeAliases[beadType]; ok {
+		beadType = canonical
+	}
+
 	// Resolve type config to determine kind and field definitions.
 	tc, err := s.resolveTypeConfig(ctx, beadType)
 	if err != nil {
@@ -176,7 +181,12 @@ func (s *BeadsServer) ListBeads(ctx context.Context, req *beadsv1.ListBeadsReque
 		filter.Status = append(filter.Status, model.Status(st))
 	}
 	for _, t := range req.GetType() {
-		filter.Type = append(filter.Type, model.BeadType(t))
+		bt := model.BeadType(t)
+		// Resolve deprecated type aliases (template→formula, bundle→molecule).
+		if canonical, ok := model.TypeAliases[bt]; ok {
+			bt = canonical
+		}
+		filter.Type = append(filter.Type, bt)
 	}
 	for _, k := range req.GetKind() {
 		filter.Kind = append(filter.Kind, model.Kind(k))

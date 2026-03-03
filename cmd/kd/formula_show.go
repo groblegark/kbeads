@@ -9,20 +9,21 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var templateShowCmd = &cobra.Command{
-	Use:   "show <template-id>",
-	Short: "Show template details including vars and steps",
+var formulaShowCmd = &cobra.Command{
+	Use:   "show <formula-id>",
+	Short: "Show formula details including vars and steps",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		id := args[0]
 
 		bead, err := beadsClient.GetBead(context.Background(), id)
 		if err != nil {
-			return fmt.Errorf("getting template: %w", err)
+			return fmt.Errorf("getting formula: %w", err)
 		}
 
-		if string(bead.Type) != "template" {
-			return fmt.Errorf("bead %s is type %q, not template", id, bead.Type)
+		// Accept both "formula" and legacy "template" type.
+		if string(bead.Type) != "formula" && string(bead.Type) != "template" {
+			return fmt.Errorf("bead %s is type %q, not formula", id, bead.Type)
 		}
 
 		if jsonOutput {
@@ -37,8 +38,8 @@ var templateShowCmd = &cobra.Command{
 		}
 
 		var fields struct {
-			Vars  []TemplateVarDef `json:"vars"`
-			Steps []TemplateStep   `json:"steps"`
+			Vars  []FormulaVarDef `json:"vars"`
+			Steps []FormulaStep   `json:"steps"`
 		}
 		if err := json.Unmarshal(bead.Fields, &fields); err != nil {
 			return nil
