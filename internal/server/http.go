@@ -52,6 +52,7 @@ func (s *BeadsServer) NewHTTPHandler(authToken string) http.Handler {
 	mux.HandleFunc("POST /v1/agents/{id}/gates/{gate_id}/satisfy", s.handleSatisfyGate)
 	mux.HandleFunc("DELETE /v1/agents/{id}/gates/{gate_id}", s.handleClearGate)
 	mux.HandleFunc("GET /v1/agents/roster", s.handleAgentRoster)
+	s.registerConnectShim(mux)
 	return AuthMiddleware(authToken, mux)
 }
 
