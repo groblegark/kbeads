@@ -30,7 +30,8 @@ type mockBeadsClient struct {
 	ListBeadsCalls     []*client.ListBeadsRequest
 
 	// Configurable return values.
-	Beads       map[string]*model.Bead // keyed by ID
+	Beads           map[string]*model.Bead // keyed by ID
+	ListBeadsResult []*model.Bead          // if set, ListBeads returns these
 	RevDeps     map[string][]*model.Dependency
 	CreateIDs   []string // sequential IDs for CreateBead calls
 	createIndex int
@@ -104,6 +105,9 @@ func (m *mockBeadsClient) ListBeads(_ context.Context, req *client.ListBeadsRequ
 	m.ListBeadsCalls = append(m.ListBeadsCalls, req)
 	if m.ListErr != nil {
 		return nil, m.ListErr
+	}
+	if m.ListBeadsResult != nil {
+		return &client.ListBeadsResponse{Beads: m.ListBeadsResult, Total: len(m.ListBeadsResult)}, nil
 	}
 	return &client.ListBeadsResponse{}, nil
 }

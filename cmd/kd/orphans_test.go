@@ -11,32 +11,6 @@ import (
 	"github.com/groblegark/kbeads/internal/model"
 )
 
-// mockBeadsClient implements the subset of client.BeadsClient used by orphans.
-type mockBeadsClient struct {
-	client.BeadsClient
-	beads    []*model.Bead
-	listErr  error
-	closeErr error
-	closed   []string
-}
-
-func (m *mockBeadsClient) ListBeads(_ context.Context, _ *client.ListBeadsRequest) (*client.ListBeadsResponse, error) {
-	if m.listErr != nil {
-		return nil, m.listErr
-	}
-	return &client.ListBeadsResponse{Beads: m.beads, Total: len(m.beads)}, nil
-}
-
-func (m *mockBeadsClient) CloseBead(_ context.Context, id, _ string) (*model.Bead, error) {
-	if m.closeErr != nil {
-		return nil, m.closeErr
-	}
-	m.closed = append(m.closed, id)
-	return &model.Bead{ID: id, Status: model.StatusClosed}, nil
-}
-
-func (m *mockBeadsClient) Close() error { return nil }
-
 func TestFindOrphans_BasicDetection(t *testing.T) {
 	origGit := gitLogRunner
 	defer func() { gitLogRunner = origGit }()
@@ -45,11 +19,10 @@ func TestFindOrphans_BasicDetection(t *testing.T) {
 		return "abc1234 fix(auth): handle nil session (kd-task1)\ndef5678 chore: update deps\n", nil
 	}
 
-	mc := &mockBeadsClient{
-		beads: []*model.Bead{
-			{ID: "kd-task1", Title: "Fix auth session", Status: model.StatusOpen},
-			{ID: "kd-task2", Title: "Add logging", Status: model.StatusInProgress},
-		},
+	mc := newMockClient()
+	mc.ListBeadsResult = []*model.Bead{
+		{ID: "kd-task1", Title: "Fix auth session", Status: model.StatusOpen},
+		{ID: "kd-task2", Title: "Add logging", Status: model.StatusInProgress},
 	}
 
 	origClient := beadsClient
@@ -113,7 +86,7 @@ func TestFindOrphans_BasicDetection(t *testing.T) {
 }
 
 func TestFindOrphans_NoOpenBeads(t *testing.T) {
-	mc := &mockBeadsClient{beads: []*model.Bead{}}
+	mc := newMockClient()
 
 	ctx := context.Background()
 	resp, err := mc.ListBeads(ctx, nil)
@@ -126,7 +99,8 @@ func TestFindOrphans_NoOpenBeads(t *testing.T) {
 }
 
 func TestFindOrphans_ListBeadsError(t *testing.T) {
-	mc := &mockBeadsClient{listErr: errors.New("connection refused")}
+	mc := newMockClient()
+	mc.ListErr = errors.New("connection refused")
 
 	ctx := context.Background()
 	_, err := mc.ListBeads(ctx, nil)
@@ -153,18 +127,19 @@ func TestFindOrphans_GitLogError(t *testing.T) {
 }
 
 func TestBeadCloser_Default(t *testing.T) {
-	mc := &mockBeadsClient{}
+	mc := newMockClient()
 	err := beadCloser(context.Background(), mc, "kd-test1", "tester")
 	if err != nil {
 		t.Fatalf("beadCloser: %v", err)
 	}
-	if len(mc.closed) != 1 || mc.closed[0] != "kd-test1" {
-		t.Fatalf("expected kd-test1 to be closed, got %v", mc.closed)
+	if len(mc.CloseBeadCalls) != 1 || mc.CloseBeadCalls[0].ID != "kd-test1" {
+		t.Fatalf("expected kd-test1 to be closed, got %v", mc.CloseBeadCalls)
 	}
 }
 
 func TestBeadCloser_Error(t *testing.T) {
-	mc := &mockBeadsClient{closeErr: errors.New("forbidden")}
+	mc := newMockClient()
+	mc.CloseErr = errors.New("forbidden")
 	err := beadCloser(context.Background(), mc, "kd-test1", "tester")
 	if err == nil || !strings.Contains(err.Error(), "forbidden") {
 		t.Fatalf("expected forbidden error, got %v", err)
