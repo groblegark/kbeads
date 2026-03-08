@@ -37,16 +37,16 @@ var formulaShowCmd = &cobra.Command{
 		}
 
 		var fields struct {
-			Vars          []FormulaVarDef `json:"vars"`
-			Steps         []FormulaStep   `json:"steps"`
-			AssignedAgent string          `json:"assigned_agent,omitempty"`
+			Vars        []FormulaVarDef `json:"vars"`
+			Steps       []FormulaStep   `json:"steps"`
+			DefaultRole string          `json:"default_role,omitempty"`
 		}
 		if err := json.Unmarshal(bead.Fields, &fields); err != nil {
 			return nil
 		}
 
-		if fields.AssignedAgent != "" {
-			fmt.Printf("\nAssigned Agent: %s\n", fields.AssignedAgent)
+		if fields.DefaultRole != "" {
+			fmt.Printf("\nDefault Role: %s\n", fields.DefaultRole)
 		}
 
 		if len(fields.Vars) > 0 {
@@ -83,7 +83,14 @@ var formulaShowCmd = &cobra.Command{
 				if s.Condition != "" {
 					cond = fmt.Sprintf(" [if %s]", s.Condition)
 				}
-				fmt.Printf("  %s: %s [%s]%s%s\n", s.ID, s.Title, typ, deps, cond)
+				roleInfo := ""
+				if s.Role != "" {
+					roleInfo = fmt.Sprintf(" role:%s", s.Role)
+				}
+				if s.Project != "" {
+					roleInfo += fmt.Sprintf(" project:%s", s.Project)
+				}
+				fmt.Printf("  %s: %s [%s]%s%s%s\n", s.ID, s.Title, typ, deps, cond, roleInfo)
 			}
 		}
 

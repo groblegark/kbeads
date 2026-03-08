@@ -18,13 +18,13 @@ func makeFormulaFields(vars []FormulaVarDef, steps []FormulaStep) json.RawMessag
 	return data
 }
 
-// makeFormulaFieldsWithAgent builds JSON fields for a formula bead including an assigned agent.
-func makeFormulaFieldsWithAgent(vars []FormulaVarDef, steps []FormulaStep, agent string) json.RawMessage {
+// makeFormulaFieldsWithDefaultRole builds JSON fields for a formula bead including a default role.
+func makeFormulaFieldsWithDefaultRole(vars []FormulaVarDef, steps []FormulaStep, defaultRole string) json.RawMessage {
 	data, _ := json.Marshal(struct {
-		Vars          []FormulaVarDef `json:"vars"`
-		Steps         []FormulaStep   `json:"steps"`
-		AssignedAgent string          `json:"assigned_agent,omitempty"`
-	}{Vars: vars, Steps: steps, AssignedAgent: agent})
+		Vars        []FormulaVarDef `json:"vars"`
+		Steps       []FormulaStep   `json:"steps"`
+		DefaultRole string          `json:"default_role,omitempty"`
+	}{Vars: vars, Steps: steps, DefaultRole: defaultRole})
 	return data
 }
 
@@ -53,7 +53,6 @@ func TestRunFormulaApply_BasicPour(t *testing.T) {
 		FormulaID: "kd-formula-1",
 		VarPairs:  []string{"component=auth"},
 		Labels:    []string{"project:foo"},
-		Assignee:  "alice",
 	})
 	if err != nil {
 		t.Fatalf("runFormulaApply: %v", err)
@@ -78,8 +77,9 @@ func TestRunFormulaApply_BasicPour(t *testing.T) {
 	if molReq.Priority != 2 {
 		t.Errorf("molecule priority = %d, want 2", molReq.Priority)
 	}
-	if molReq.Assignee != "alice" {
-		t.Errorf("molecule assignee = %q, want alice", molReq.Assignee)
+	// Molecule should have no assignee (formulas don't own agents).
+	if molReq.Assignee != "" {
+		t.Errorf("molecule assignee = %q, want empty (no agent ownership)", molReq.Assignee)
 	}
 
 	// Check molecule fields contain formula_id.
@@ -498,7 +498,7 @@ func TestRunFormulaApply_StepDefaultType(t *testing.T) {
 	}
 }
 
-func TestRunFormulaApply_StepAssigneeFallback(t *testing.T) {
+func TestRunFormulaApply_StepAssigneeExplicit(t *testing.T) {
 	mc := newMockClient()
 	mc.CreateIDs = []string{"kd-m", "kd-s1", "kd-s2"}
 	mc.Beads["kd-f"] = &model.Bead{
@@ -512,7 +512,7 @@ func TestRunFormulaApply_StepAssigneeFallback(t *testing.T) {
 	}
 	withMockClient(t, mc)
 
-	err := runFormulaApply(formulaApplyOpts{FormulaID: "kd-f", Assignee: "alice"})
+	err := runFormulaApply(formulaApplyOpts{FormulaID: "kd-f"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -523,10 +523,10 @@ func TestRunFormulaApply_StepAssigneeFallback(t *testing.T) {
 		t.Errorf("step 1 assignee = %q, want bob", s1.Assignee)
 	}
 
-	// Step without assignee falls back to opts.Assignee.
+	// Step without assignee has no assignee (no global fallback).
 	s2 := mc.CreateBeadCalls[2]
-	if s2.Assignee != "alice" {
-		t.Errorf("step 2 assignee = %q, want alice (fallback)", s2.Assignee)
+	if s2.Assignee != "" {
+		t.Errorf("step 2 assignee = %q, want empty (no fallback)", s2.Assignee)
 	}
 }
 
@@ -628,60 +628,89 @@ func TestRunFormulaApply_AssigneeVarSubstitution(t *testing.T) {
 	}
 }
 
-func TestRunFormulaApply_AssignedAgent(t *testing.T) {
+func TestRunFormulaApply_StepRoleProject(t *testing.T) {
 	mc := newMockClient()
-	mc.CreateIDs = []string{"kd-m", "kd-s1"}
-	mc.Beads["kd-f-agent"] = &model.Bead{
-		ID:    "kd-f-agent",
+	mc.CreateIDs = []string{"kd-m", "kd-s1", "kd-s2"}
+	mc.Beads["kd-f-rp"] = &model.Bead{
+		ID:    "kd-f-rp",
 		Type:  "formula",
-		Title: "Agent workflow",
-		Fields: makeFormulaFieldsWithAgent(nil, []FormulaStep{
-			{ID: "s1", Title: "Do work"},
-		}, "my-agent"),
+		Title: "Multi-role workflow",
+		Fields: makeFormulaFields(nil, []FormulaStep{
+			{ID: "s1", Title: "Design", Role: "captain", Project: "gasboat"},
+			{ID: "s2", Title: "Implement", Role: "crew"},
+		}),
 	}
 	withMockClient(t, mc)
 
-	// No --assignee on the command line — should use formula's assigned_agent.
-	err := runFormulaApply(formulaApplyOpts{FormulaID: "kd-f-agent"})
+	err := runFormulaApply(formulaApplyOpts{FormulaID: "kd-f-rp"})
 	if err != nil {
-		t.Fatalf("apply with assigned_agent: %v", err)
+		t.Fatalf("apply with role/project: %v", err)
 	}
 
-	molReq := mc.CreateBeadCalls[0]
-	if molReq.Assignee != "my-agent" {
-		t.Errorf("molecule assignee = %q, want 'my-agent'", molReq.Assignee)
+	// Step 1 should have role:captain and project:gasboat labels.
+	s1 := mc.CreateBeadCalls[1]
+	s1Labels := make(map[string]bool)
+	for _, l := range s1.Labels {
+		s1Labels[l] = true
 	}
-	stepReq := mc.CreateBeadCalls[1]
-	if stepReq.Assignee != "my-agent" {
-		t.Errorf("step assignee = %q, want 'my-agent' (from formula)", stepReq.Assignee)
+	if !s1Labels["role:captain"] {
+		t.Errorf("step 1 labels %v missing role:captain", s1.Labels)
+	}
+	if !s1Labels["project:gasboat"] {
+		t.Errorf("step 1 labels %v missing project:gasboat", s1.Labels)
+	}
+
+	// Step 2 should have role:crew but no extra project label.
+	s2 := mc.CreateBeadCalls[2]
+	s2Labels := make(map[string]bool)
+	for _, l := range s2.Labels {
+		s2Labels[l] = true
+	}
+	if !s2Labels["role:crew"] {
+		t.Errorf("step 2 labels %v missing role:crew", s2.Labels)
 	}
 }
 
-func TestRunFormulaApply_AssignedAgentOverride(t *testing.T) {
+func TestRunFormulaApply_DefaultRole(t *testing.T) {
 	mc := newMockClient()
-	mc.CreateIDs = []string{"kd-m", "kd-s1"}
-	mc.Beads["kd-f-agent2"] = &model.Bead{
-		ID:    "kd-f-agent2",
+	mc.CreateIDs = []string{"kd-m", "kd-s1", "kd-s2"}
+	mc.Beads["kd-f-dr"] = &model.Bead{
+		ID:    "kd-f-dr",
 		Type:  "formula",
-		Title: "Agent workflow",
-		Fields: makeFormulaFieldsWithAgent(nil, []FormulaStep{
-			{ID: "s1", Title: "Do work"},
-		}, "default-agent"),
+		Title: "Default role workflow",
+		Fields: makeFormulaFieldsWithDefaultRole(nil, []FormulaStep{
+			{ID: "s1", Title: "Step without role"},
+			{ID: "s2", Title: "Step with role", Role: "captain"},
+		}, "crew"),
 	}
 	withMockClient(t, mc)
 
-	// --assignee on the command line should override formula's assigned_agent.
-	err := runFormulaApply(formulaApplyOpts{
-		FormulaID: "kd-f-agent2",
-		Assignee:  "override-agent",
-	})
+	err := runFormulaApply(formulaApplyOpts{FormulaID: "kd-f-dr"})
 	if err != nil {
-		t.Fatalf("apply with assignee override: %v", err)
+		t.Fatalf("apply with default_role: %v", err)
 	}
 
-	molReq := mc.CreateBeadCalls[0]
-	if molReq.Assignee != "override-agent" {
-		t.Errorf("molecule assignee = %q, want 'override-agent'", molReq.Assignee)
+	// Step 1 has no explicit role — should get default_role "crew".
+	s1 := mc.CreateBeadCalls[1]
+	s1Labels := make(map[string]bool)
+	for _, l := range s1.Labels {
+		s1Labels[l] = true
+	}
+	if !s1Labels["role:crew"] {
+		t.Errorf("step 1 labels %v missing role:crew (from default_role)", s1.Labels)
+	}
+
+	// Step 2 has explicit role "captain" — should override default_role.
+	s2 := mc.CreateBeadCalls[2]
+	s2Labels := make(map[string]bool)
+	for _, l := range s2.Labels {
+		s2Labels[l] = true
+	}
+	if !s2Labels["role:captain"] {
+		t.Errorf("step 2 labels %v missing role:captain", s2.Labels)
+	}
+	if s2Labels["role:crew"] {
+		t.Errorf("step 2 labels %v should not have role:crew (overridden by step role)", s2.Labels)
 	}
 }
 

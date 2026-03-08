@@ -204,8 +204,8 @@ func TestFormulaUpdate_MissingFile(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for missing --file")
 	}
-	if !strings.Contains(err.Error(), "--file or --assignee is required") {
-		t.Errorf("error = %q, want '--file or --assignee is required'", err)
+	if !strings.Contains(err.Error(), "--file or --default-role is required") {
+		t.Errorf("error = %q, want '--file or --default-role is required'", err)
 	}
 }
 

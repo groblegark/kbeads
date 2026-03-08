@@ -31,6 +31,8 @@ type FormulaStep struct {
 	DependsOn   []string `json:"depends_on,omitempty"`
 	Assignee    string   `json:"assignee,omitempty"`
 	Condition   string   `json:"condition,omitempty"`
+	Role        string   `json:"role,omitempty"`    // agent role requirement for this step
+	Project     string   `json:"project,omitempty"` // project scope for this step
 }
 
 var formulaCreateCmd = &cobra.Command{
@@ -64,7 +66,7 @@ Examples:
 		description, _ := cmd.Flags().GetString("description")
 		priority, _ := cmd.Flags().GetInt("priority")
 		labels, _ := cmd.Flags().GetStringSlice("label")
-		assignee, _ := cmd.Flags().GetString("assignee")
+		defaultRole, _ := cmd.Flags().GetString("default-role")
 
 		if filePath == "" {
 			return fmt.Errorf("--file is required: provide a JSON file path or - for stdin")
@@ -121,8 +123,8 @@ Examples:
 			"vars":  content.Vars,
 			"steps": content.Steps,
 		}
-		if assignee != "" {
-			fields["assigned_agent"] = assignee
+		if defaultRole != "" {
+			fields["default_role"] = defaultRole
 		}
 		fieldsJSON, err := json.Marshal(fields)
 		if err != nil {
@@ -160,5 +162,5 @@ func init() {
 	formulaCreateCmd.Flags().StringP("description", "d", "", "formula description")
 	formulaCreateCmd.Flags().IntP("priority", "p", 2, "priority (0-4)")
 	formulaCreateCmd.Flags().StringSliceP("label", "l", nil, "labels (repeatable)")
-	formulaCreateCmd.Flags().String("assignee", "", "agent to assign molecules to when this formula is poured")
+	formulaCreateCmd.Flags().String("default-role", "", "default agent role for molecule steps")
 }

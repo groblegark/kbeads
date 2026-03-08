@@ -11,10 +11,10 @@ import (
 )
 
 // runFormulaUpdate replaces a formula's fields from a JSON file and/or updates
-// the assigned agent.
-func runFormulaUpdate(id, filePath, assignee string, clearAssignee bool) error {
-	if filePath == "" && assignee == "" && !clearAssignee {
-		return fmt.Errorf("--file or --assignee is required")
+// the default role.
+func runFormulaUpdate(id, filePath, defaultRole string, clearDefaultRole bool) error {
+	if filePath == "" && defaultRole == "" && !clearDefaultRole {
+		return fmt.Errorf("--file or --default-role is required")
 	}
 
 	// Validate the bead is a formula.
@@ -90,12 +90,15 @@ func runFormulaUpdate(id, filePath, assignee string, clearAssignee bool) error {
 		}
 	}
 
-	// Update assigned_agent.
-	if clearAssignee {
-		delete(fields, "assigned_agent")
-	} else if assignee != "" {
-		fields["assigned_agent"] = assignee
+	// Update default_role.
+	if clearDefaultRole {
+		delete(fields, "default_role")
+	} else if defaultRole != "" {
+		fields["default_role"] = defaultRole
 	}
+
+	// Clean up legacy assigned_agent field if present.
+	delete(fields, "assigned_agent")
 
 	fieldsJSON, err := json.Marshal(fields)
 	if err != nil {
@@ -121,27 +124,27 @@ func runFormulaUpdate(id, filePath, assignee string, clearAssignee bool) error {
 
 var formulaUpdateCmd = &cobra.Command{
 	Use:   "update <formula-id>",
-	Short: "Update formula definition or assignment",
-	Long: `Update an existing formula's definition and/or agent assignment.
+	Short: "Update formula definition or default role",
+	Long: `Update an existing formula's definition and/or default role.
 
-Use --file to replace the vars and steps. Use --assignee to set the
-default agent assignment for molecules created from this formula.
+Use --file to replace the vars and steps. Use --default-role to set the
+default agent role for molecule steps.
 
 Examples:
 
   kd formula update kd-abc123 --file formula.json
-  kd formula update kd-abc123 --assignee my-agent
-  kd formula update kd-abc123 --assignee ""`,
+  kd formula update kd-abc123 --default-role crew
+  kd formula update kd-abc123 --default-role ""`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		filePath, _ := cmd.Flags().GetString("file")
-		assignee, _ := cmd.Flags().GetString("assignee")
-		clearAssignee := cmd.Flags().Changed("assignee") && assignee == ""
-		return runFormulaUpdate(args[0], filePath, assignee, clearAssignee)
+		defaultRole, _ := cmd.Flags().GetString("default-role")
+		clearDefaultRole := cmd.Flags().Changed("default-role") && defaultRole == ""
+		return runFormulaUpdate(args[0], filePath, defaultRole, clearDefaultRole)
 	},
 }
 
 func init() {
 	formulaUpdateCmd.Flags().StringP("file", "f", "", "JSON file with formula definition (use - for stdin)")
-	formulaUpdateCmd.Flags().String("assignee", "", "agent to assign molecules to when this formula is poured (empty string to clear)")
+	formulaUpdateCmd.Flags().String("default-role", "", "default agent role for molecule steps (empty string to clear)")
 }
