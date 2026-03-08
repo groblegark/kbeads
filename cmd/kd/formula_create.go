@@ -31,6 +31,7 @@ type FormulaStep struct {
 	DependsOn   []string `json:"depends_on,omitempty"`
 	Assignee    string   `json:"assignee,omitempty"`
 	Condition   string   `json:"condition,omitempty"`
+	Roles       []string `json:"roles,omitempty"` // role requirements for this step (overrides formula default_roles)
 }
 
 var formulaCreateCmd = &cobra.Command{
@@ -83,8 +84,9 @@ Examples:
 
 		// Parse and validate the formula content.
 		var content struct {
-			Vars  []FormulaVarDef `json:"vars"`
-			Steps []FormulaStep   `json:"steps"`
+			Vars         []FormulaVarDef `json:"vars"`
+			Steps        []FormulaStep   `json:"steps"`
+			DefaultRoles []string        `json:"default_roles,omitempty"`
 		}
 		if err := json.Unmarshal(data, &content); err != nil {
 			return fmt.Errorf("parsing formula JSON: %w", err)
@@ -120,6 +122,9 @@ Examples:
 		fields := map[string]any{
 			"vars":  content.Vars,
 			"steps": content.Steps,
+		}
+		if len(content.DefaultRoles) > 0 {
+			fields["default_roles"] = content.DefaultRoles
 		}
 		if assignee != "" {
 			fields["assigned_agent"] = assignee

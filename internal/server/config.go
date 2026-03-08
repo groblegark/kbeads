@@ -116,6 +116,7 @@ var builtinConfigs = map[string]*model.Config{
 		"fields": [
 			{"name": "vars",  "type": "json"},
 			{"name": "steps", "type": "json"},
+			{"name": "default_roles", "type": "json"},
 			{"name": "assigned_agent", "type": "string"}
 		]
 	}`)},

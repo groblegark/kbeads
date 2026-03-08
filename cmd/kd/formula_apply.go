@@ -37,6 +37,7 @@ func runFormulaApply(opts formulaApplyOpts) error {
 	var fields struct {
 		Vars          []FormulaVarDef `json:"vars"`
 		Steps         []FormulaStep   `json:"steps"`
+		DefaultRoles  []string        `json:"default_roles,omitempty"`
 		AssignedAgent string          `json:"assigned_agent,omitempty"`
 	}
 	if len(bead.Fields) == 0 {
@@ -165,7 +166,15 @@ func runFormulaApply(opts formulaApplyOpts) error {
 			if len(s.DependsOn) > 0 {
 				deps = fmt.Sprintf(" (after: %s)", strings.Join(s.DependsOn, ", "))
 			}
-			fmt.Printf("  Step %s: %s [%s]%s\n", s.ID, s.Title, typ, deps)
+			roles := s.Roles
+			if len(roles) == 0 {
+				roles = fields.DefaultRoles
+			}
+			roleStr := ""
+			if len(roles) > 0 {
+				roleStr = fmt.Sprintf(" roles:%v", roles)
+			}
+			fmt.Printf("  Step %s: %s [%s]%s%s\n", s.ID, s.Title, typ, deps, roleStr)
 		}
 		fmt.Printf("\nTotal: 1 %s + %d steps\n", phase, len(active))
 		return nil
@@ -217,12 +226,23 @@ func runFormulaApply(opts formulaApplyOpts) error {
 			stepAssignee = opts.Assignee
 		}
 
+		// Resolve roles: step-level roles override formula default_roles.
+		stepRoles := s.Roles
+		if len(stepRoles) == 0 {
+			stepRoles = fields.DefaultRoles
+		}
+		// Convert roles to role:X labels.
+		var roleLabels []string
+		for _, r := range stepRoles {
+			roleLabels = append(roleLabels, "role:"+r)
+		}
+
 		stepReq := &client.CreateBeadRequest{
 			Title:       s.Title,
 			Description: s.Description,
 			Type:        typ,
 			Priority:    priorityOrDefault(s.Priority, bead.Priority),
-			Labels:      mergeLabels(molLabels, s.Labels),
+			Labels:      mergeLabels(mergeLabels(molLabels, s.Labels), roleLabels),
 			Assignee:    stepAssignee,
 			CreatedBy:   actor,
 		}
