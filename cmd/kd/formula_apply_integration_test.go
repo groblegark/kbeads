@@ -18,6 +18,16 @@ func makeFormulaFields(vars []FormulaVarDef, steps []FormulaStep) json.RawMessag
 	return data
 }
 
+// makeFormulaFieldsWithAgent builds JSON fields for a formula bead including an assigned agent.
+func makeFormulaFieldsWithAgent(vars []FormulaVarDef, steps []FormulaStep, agent string) json.RawMessage {
+	data, _ := json.Marshal(struct {
+		Vars          []FormulaVarDef `json:"vars"`
+		Steps         []FormulaStep   `json:"steps"`
+		AssignedAgent string          `json:"assigned_agent,omitempty"`
+	}{Vars: vars, Steps: steps, AssignedAgent: agent})
+	return data
+}
+
 func TestRunFormulaApply_BasicPour(t *testing.T) {
 	mc := newMockClient()
 	mc.CreateIDs = []string{"kd-mol-1", "kd-step-1", "kd-step-2"}
@@ -615,6 +625,111 @@ func TestRunFormulaApply_AssigneeVarSubstitution(t *testing.T) {
 	s1 := mc.CreateBeadCalls[1]
 	if s1.Assignee != "charlie" {
 		t.Errorf("step assignee = %q, want charlie", s1.Assignee)
+	}
+}
+
+func TestRunFormulaApply_AssignedAgent(t *testing.T) {
+	mc := newMockClient()
+	mc.CreateIDs = []string{"kd-m", "kd-s1"}
+	mc.Beads["kd-f-agent"] = &model.Bead{
+		ID:    "kd-f-agent",
+		Type:  "formula",
+		Title: "Agent workflow",
+		Fields: makeFormulaFieldsWithAgent(nil, []FormulaStep{
+			{ID: "s1", Title: "Do work"},
+		}, "my-agent"),
+	}
+	withMockClient(t, mc)
+
+	// No --assignee on the command line — should use formula's assigned_agent.
+	err := runFormulaApply(formulaApplyOpts{FormulaID: "kd-f-agent"})
+	if err != nil {
+		t.Fatalf("apply with assigned_agent: %v", err)
+	}
+
+	molReq := mc.CreateBeadCalls[0]
+	if molReq.Assignee != "my-agent" {
+		t.Errorf("molecule assignee = %q, want 'my-agent'", molReq.Assignee)
+	}
+	stepReq := mc.CreateBeadCalls[1]
+	if stepReq.Assignee != "my-agent" {
+		t.Errorf("step assignee = %q, want 'my-agent' (from formula)", stepReq.Assignee)
+	}
+}
+
+func TestRunFormulaApply_AssignedAgentOverride(t *testing.T) {
+	mc := newMockClient()
+	mc.CreateIDs = []string{"kd-m", "kd-s1"}
+	mc.Beads["kd-f-agent2"] = &model.Bead{
+		ID:    "kd-f-agent2",
+		Type:  "formula",
+		Title: "Agent workflow",
+		Fields: makeFormulaFieldsWithAgent(nil, []FormulaStep{
+			{ID: "s1", Title: "Do work"},
+		}, "default-agent"),
+	}
+	withMockClient(t, mc)
+
+	// --assignee on the command line should override formula's assigned_agent.
+	err := runFormulaApply(formulaApplyOpts{
+		FormulaID: "kd-f-agent2",
+		Assignee:  "override-agent",
+	})
+	if err != nil {
+		t.Fatalf("apply with assignee override: %v", err)
+	}
+
+	molReq := mc.CreateBeadCalls[0]
+	if molReq.Assignee != "override-agent" {
+		t.Errorf("molecule assignee = %q, want 'override-agent'", molReq.Assignee)
+	}
+}
+
+func TestRunFormulaApply_LabelPropagation(t *testing.T) {
+	mc := newMockClient()
+	mc.CreateIDs = []string{"kd-m", "kd-s1"}
+	mc.Beads["kd-f-labels"] = &model.Bead{
+		ID:     "kd-f-labels",
+		Type:   "formula",
+		Title:  "Labeled formula",
+		Labels: []string{"project:gasboat", "role:crew"},
+		Fields: makeFormulaFields(nil, []FormulaStep{
+			{ID: "s1", Title: "Do work", Labels: []string{"step-extra"}},
+		}),
+	}
+	withMockClient(t, mc)
+
+	// Formula labels should propagate to molecule and steps.
+	err := runFormulaApply(formulaApplyOpts{
+		FormulaID: "kd-f-labels",
+		Labels:    []string{"extra:label"},
+	})
+	if err != nil {
+		t.Fatalf("apply with label propagation: %v", err)
+	}
+
+	// Molecule should have formula labels + command labels.
+	molReq := mc.CreateBeadCalls[0]
+	molLabelSet := make(map[string]bool)
+	for _, l := range molReq.Labels {
+		molLabelSet[l] = true
+	}
+	for _, want := range []string{"project:gasboat", "role:crew", "extra:label"} {
+		if !molLabelSet[want] {
+			t.Errorf("molecule labels %v missing %q", molReq.Labels, want)
+		}
+	}
+
+	// Steps should also get the merged labels + their own step labels.
+	stepReq := mc.CreateBeadCalls[1]
+	stepLabelSet := make(map[string]bool)
+	for _, l := range stepReq.Labels {
+		stepLabelSet[l] = true
+	}
+	for _, want := range []string{"project:gasboat", "role:crew", "extra:label", "step-extra"} {
+		if !stepLabelSet[want] {
+			t.Errorf("step labels %v missing %q", stepReq.Labels, want)
+		}
 	}
 }
 

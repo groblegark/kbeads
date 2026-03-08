@@ -64,6 +64,7 @@ Examples:
 		description, _ := cmd.Flags().GetString("description")
 		priority, _ := cmd.Flags().GetInt("priority")
 		labels, _ := cmd.Flags().GetStringSlice("label")
+		assignee, _ := cmd.Flags().GetString("assignee")
 
 		if filePath == "" {
 			return fmt.Errorf("--file is required: provide a JSON file path or - for stdin")
@@ -120,6 +121,9 @@ Examples:
 			"vars":  content.Vars,
 			"steps": content.Steps,
 		}
+		if assignee != "" {
+			fields["assigned_agent"] = assignee
+		}
 		fieldsJSON, err := json.Marshal(fields)
 		if err != nil {
 			return fmt.Errorf("encoding fields: %w", err)
@@ -156,4 +160,5 @@ func init() {
 	formulaCreateCmd.Flags().StringP("description", "d", "", "formula description")
 	formulaCreateCmd.Flags().IntP("priority", "p", 2, "priority (0-4)")
 	formulaCreateCmd.Flags().StringSliceP("label", "l", nil, "labels (repeatable)")
+	formulaCreateCmd.Flags().String("assignee", "", "agent to assign molecules to when this formula is poured")
 }

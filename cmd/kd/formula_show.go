@@ -37,11 +37,16 @@ var formulaShowCmd = &cobra.Command{
 		}
 
 		var fields struct {
-			Vars  []FormulaVarDef `json:"vars"`
-			Steps []FormulaStep   `json:"steps"`
+			Vars          []FormulaVarDef `json:"vars"`
+			Steps         []FormulaStep   `json:"steps"`
+			AssignedAgent string          `json:"assigned_agent,omitempty"`
 		}
 		if err := json.Unmarshal(bead.Fields, &fields); err != nil {
 			return nil
+		}
+
+		if fields.AssignedAgent != "" {
+			fmt.Printf("\nAssigned Agent: %s\n", fields.AssignedAgent)
 		}
 
 		if len(fields.Vars) > 0 {
