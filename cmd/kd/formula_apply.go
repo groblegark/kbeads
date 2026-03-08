@@ -35,8 +35,9 @@ func runFormulaApply(opts formulaApplyOpts) error {
 	}
 
 	var fields struct {
-		Vars  []FormulaVarDef `json:"vars"`
-		Steps []FormulaStep   `json:"steps"`
+		Vars          []FormulaVarDef `json:"vars"`
+		Steps         []FormulaStep   `json:"steps"`
+		AssignedAgent string          `json:"assigned_agent,omitempty"`
 	}
 	if len(bead.Fields) == 0 {
 		return fmt.Errorf("formula %s has no fields (empty formula)", opts.FormulaID)
@@ -46,6 +47,11 @@ func runFormulaApply(opts formulaApplyOpts) error {
 	}
 	if len(fields.Steps) == 0 {
 		return fmt.Errorf("formula %s has no steps", opts.FormulaID)
+	}
+
+	// Use formula's assigned_agent as default assignee if none specified on the command line.
+	if opts.Assignee == "" && fields.AssignedAgent != "" {
+		opts.Assignee = fields.AssignedAgent
 	}
 
 	// Parse --var key=value pairs.
@@ -179,12 +185,15 @@ func runFormulaApply(opts formulaApplyOpts) error {
 	}
 	molFieldsJSON, _ := json.Marshal(molFields)
 
+	// Merge formula's labels with command-line labels so project/role scope propagates.
+	molLabels := mergeLabels(bead.Labels, opts.Labels)
+
 	molReq := &client.CreateBeadRequest{
 		Title:       molTitle,
 		Description: substituteVars(bead.Description, vars),
 		Type:        "molecule",
 		Priority:    bead.Priority,
-		Labels:      opts.Labels,
+		Labels:      molLabels,
 		Assignee:    opts.Assignee,
 		CreatedBy:   actor,
 		Fields:      molFieldsJSON,
@@ -213,7 +222,7 @@ func runFormulaApply(opts formulaApplyOpts) error {
 			Description: s.Description,
 			Type:        typ,
 			Priority:    priorityOrDefault(s.Priority, bead.Priority),
-			Labels:      mergeLabels(opts.Labels, s.Labels),
+			Labels:      mergeLabels(molLabels, s.Labels),
 			Assignee:    stepAssignee,
 			CreatedBy:   actor,
 		}

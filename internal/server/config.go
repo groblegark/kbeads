@@ -115,7 +115,8 @@ var builtinConfigs = map[string]*model.Config{
 		"kind": "data",
 		"fields": [
 			{"name": "vars",  "type": "json"},
-			{"name": "steps", "type": "json"}
+			{"name": "steps", "type": "json"},
+			{"name": "assigned_agent", "type": "string"}
 		]
 	}`)},
 	"type:molecule": {Key: "type:molecule", Value: json.RawMessage(`{

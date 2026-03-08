@@ -151,7 +151,7 @@ func TestFormulaUpdate_Basic(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := runFormulaUpdate("kd-f1", tmpFile); err != nil {
+	if err := runFormulaUpdate("kd-f1", tmpFile, "", false); err != nil {
 		t.Fatalf("update: %v", err)
 	}
 
@@ -190,7 +190,7 @@ func TestFormulaUpdate_NotFormula(t *testing.T) {
 	tmpFile := filepath.Join(t.TempDir(), "f.json")
 	os.WriteFile(tmpFile, []byte(`{"steps":[{"id":"s","title":"S"}]}`), 0644)
 
-	err := runFormulaUpdate("kd-task", tmpFile)
+	err := runFormulaUpdate("kd-task", tmpFile, "", false)
 	if err == nil {
 		t.Fatal("expected error for non-formula bead")
 	}
@@ -200,12 +200,12 @@ func TestFormulaUpdate_NotFormula(t *testing.T) {
 }
 
 func TestFormulaUpdate_MissingFile(t *testing.T) {
-	err := runFormulaUpdate("kd-f", "")
+	err := runFormulaUpdate("kd-f", "", "", false)
 	if err == nil {
 		t.Fatal("expected error for missing --file")
 	}
-	if !strings.Contains(err.Error(), "--file is required") {
-		t.Errorf("error = %q, want '--file is required'", err)
+	if !strings.Contains(err.Error(), "--file or --assignee is required") {
+		t.Errorf("error = %q, want '--file or --assignee is required'", err)
 	}
 }
 
@@ -217,7 +217,7 @@ func TestFormulaUpdate_NoSteps(t *testing.T) {
 	tmpFile := filepath.Join(t.TempDir(), "f.json")
 	os.WriteFile(tmpFile, []byte(`{"vars":[],"steps":[]}`), 0644)
 
-	err := runFormulaUpdate("kd-f", tmpFile)
+	err := runFormulaUpdate("kd-f", tmpFile, "", false)
 	if err == nil {
 		t.Fatal("expected error for empty steps")
 	}
@@ -234,7 +234,7 @@ func TestFormulaUpdate_DuplicateStepID(t *testing.T) {
 	tmpFile := filepath.Join(t.TempDir(), "f.json")
 	os.WriteFile(tmpFile, []byte(`{"steps":[{"id":"s","title":"A"},{"id":"s","title":"B"}]}`), 0644)
 
-	err := runFormulaUpdate("kd-f", tmpFile)
+	err := runFormulaUpdate("kd-f", tmpFile, "", false)
 	if err == nil {
 		t.Fatal("expected error for duplicate step id")
 	}
@@ -251,7 +251,7 @@ func TestFormulaUpdate_BadDependency(t *testing.T) {
 	tmpFile := filepath.Join(t.TempDir(), "f.json")
 	os.WriteFile(tmpFile, []byte(`{"steps":[{"id":"s1","title":"A","depends_on":["missing"]}]}`), 0644)
 
-	err := runFormulaUpdate("kd-f", tmpFile)
+	err := runFormulaUpdate("kd-f", tmpFile, "", false)
 	if err == nil {
 		t.Fatal("expected error for bad dependency")
 	}
@@ -269,7 +269,7 @@ func TestFormulaUpdate_ServerError(t *testing.T) {
 	tmpFile := filepath.Join(t.TempDir(), "f.json")
 	os.WriteFile(tmpFile, []byte(`{"steps":[{"id":"s","title":"S"}]}`), 0644)
 
-	err := runFormulaUpdate("kd-f", tmpFile)
+	err := runFormulaUpdate("kd-f", tmpFile, "", false)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -301,7 +301,7 @@ func TestFormulaUpdate_RoundTrip(t *testing.T) {
 	}
 
 	// Update from that same file.
-	if err := runFormulaUpdate("kd-rt", dumpFile); err != nil {
+	if err := runFormulaUpdate("kd-rt", dumpFile, "", false); err != nil {
 		t.Fatalf("update: %v", err)
 	}
 
