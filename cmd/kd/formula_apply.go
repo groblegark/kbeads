@@ -16,7 +16,6 @@ type formulaApplyOpts struct {
 	FormulaID string
 	VarPairs  []string
 	Labels    []string
-	Assignee  string
 	DryRun    bool
 	Ephemeral bool // true for wisp (vapor phase), false for pour (liquid phase)
 }
@@ -35,9 +34,9 @@ func runFormulaApply(opts formulaApplyOpts) error {
 	}
 
 	var fields struct {
-		Vars          []FormulaVarDef `json:"vars"`
-		Steps         []FormulaStep   `json:"steps"`
-		AssignedAgent string          `json:"assigned_agent,omitempty"`
+		Vars        []FormulaVarDef `json:"vars"`
+		Steps       []FormulaStep   `json:"steps"`
+		DefaultRole string          `json:"default_role,omitempty"`
 	}
 	if len(bead.Fields) == 0 {
 		return fmt.Errorf("formula %s has no fields (empty formula)", opts.FormulaID)
@@ -47,11 +46,6 @@ func runFormulaApply(opts formulaApplyOpts) error {
 	}
 	if len(fields.Steps) == 0 {
 		return fmt.Errorf("formula %s has no steps", opts.FormulaID)
-	}
-
-	// Use formula's assigned_agent as default assignee if none specified on the command line.
-	if opts.Assignee == "" && fields.AssignedAgent != "" {
-		opts.Assignee = fields.AssignedAgent
 	}
 
 	// Parse --var key=value pairs.
@@ -107,10 +101,12 @@ func runFormulaApply(opts formulaApplyOpts) error {
 			}
 		}
 
-		// Substitute variables in title and description.
+		// Substitute variables in title, description, and role/project.
 		es.Title = substituteVars(s.Title, vars)
 		es.Description = substituteVars(s.Description, vars)
 		es.Assignee = substituteVars(s.Assignee, vars)
+		es.Role = substituteVars(s.Role, vars)
+		es.Project = substituteVars(s.Project, vars)
 
 		expanded = append(expanded, es)
 	}
@@ -165,7 +161,18 @@ func runFormulaApply(opts formulaApplyOpts) error {
 			if len(s.DependsOn) > 0 {
 				deps = fmt.Sprintf(" (after: %s)", strings.Join(s.DependsOn, ", "))
 			}
-			fmt.Printf("  Step %s: %s [%s]%s\n", s.ID, s.Title, typ, deps)
+			roleInfo := ""
+			stepRole := s.Role
+			if stepRole == "" {
+				stepRole = fields.DefaultRole
+			}
+			if stepRole != "" {
+				roleInfo = fmt.Sprintf(" role:%s", stepRole)
+			}
+			if s.Project != "" {
+				roleInfo += fmt.Sprintf(" project:%s", s.Project)
+			}
+			fmt.Printf("  Step %s: %s [%s]%s%s\n", s.ID, s.Title, typ, deps, roleInfo)
 		}
 		fmt.Printf("\nTotal: 1 %s + %d steps\n", phase, len(active))
 		return nil
@@ -194,7 +201,6 @@ func runFormulaApply(opts formulaApplyOpts) error {
 		Type:        "molecule",
 		Priority:    bead.Priority,
 		Labels:      molLabels,
-		Assignee:    opts.Assignee,
 		CreatedBy:   actor,
 		Fields:      molFieldsJSON,
 	}
@@ -212,9 +218,18 @@ func runFormulaApply(opts formulaApplyOpts) error {
 		if typ == "" {
 			typ = "task"
 		}
-		stepAssignee := s.Assignee
-		if stepAssignee == "" {
-			stepAssignee = opts.Assignee
+
+		// Build step labels: merge molecule labels, step labels, and role/project.
+		stepLabels := mergeLabels(molLabels, s.Labels)
+		stepRole := s.Role
+		if stepRole == "" {
+			stepRole = fields.DefaultRole
+		}
+		if stepRole != "" {
+			stepLabels = mergeLabels(stepLabels, []string{"role:" + stepRole})
+		}
+		if s.Project != "" {
+			stepLabels = mergeLabels(stepLabels, []string{"project:" + s.Project})
 		}
 
 		stepReq := &client.CreateBeadRequest{
@@ -222,8 +237,8 @@ func runFormulaApply(opts formulaApplyOpts) error {
 			Description: s.Description,
 			Type:        typ,
 			Priority:    priorityOrDefault(s.Priority, bead.Priority),
-			Labels:      mergeLabels(molLabels, s.Labels),
-			Assignee:    stepAssignee,
+			Labels:      stepLabels,
+			Assignee:    s.Assignee,
 			CreatedBy:   actor,
 		}
 
@@ -296,13 +311,11 @@ func instantiateRunE(ephemeral bool) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
 		varPairs, _ := cmd.Flags().GetStringSlice("var")
 		labels, _ := cmd.Flags().GetStringSlice("label")
-		assignee, _ := cmd.Flags().GetString("assignee")
 		dryRun, _ := cmd.Flags().GetBool("dry-run")
 		return runFormulaApply(formulaApplyOpts{
 			FormulaID: args[0],
 			VarPairs:  varPairs,
 			Labels:    labels,
-			Assignee:  assignee,
 			DryRun:    dryRun,
 			Ephemeral: ephemeral,
 		})
@@ -380,14 +393,12 @@ Examples:
 	RunE: func(cmd *cobra.Command, args []string) error {
 		varPairs, _ := cmd.Flags().GetStringSlice("var")
 		labels, _ := cmd.Flags().GetStringSlice("label")
-		assignee, _ := cmd.Flags().GetString("assignee")
 		dryRun, _ := cmd.Flags().GetBool("dry-run")
 		ephemeral, _ := cmd.Flags().GetBool("ephemeral")
 		return runFormulaApply(formulaApplyOpts{
 			FormulaID: args[0],
 			VarPairs:  varPairs,
 			Labels:    labels,
-			Assignee:  assignee,
 			DryRun:    dryRun,
 			Ephemeral: ephemeral,
 		})
@@ -484,7 +495,6 @@ func mergeLabels(base, extra []string) []string {
 func addInstantiateFlags(cmd *cobra.Command) {
 	cmd.Flags().StringSlice("var", nil, "variable substitution (key=value, repeatable)")
 	cmd.Flags().StringSliceP("label", "l", nil, "labels for created beads (repeatable)")
-	cmd.Flags().String("assignee", "", "default assignee for created beads")
 	cmd.Flags().Bool("dry-run", false, "preview what would be created without creating anything")
 }
 
