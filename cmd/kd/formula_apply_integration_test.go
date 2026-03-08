@@ -28,6 +28,16 @@ func makeFormulaFieldsWithAgent(vars []FormulaVarDef, steps []FormulaStep, agent
 	return data
 }
 
+// makeFormulaFieldsWithRoles builds JSON fields for a formula bead including default_roles.
+func makeFormulaFieldsWithRoles(vars []FormulaVarDef, steps []FormulaStep, defaultRoles []string) json.RawMessage {
+	data, _ := json.Marshal(struct {
+		Vars         []FormulaVarDef `json:"vars"`
+		Steps        []FormulaStep   `json:"steps"`
+		DefaultRoles []string        `json:"default_roles,omitempty"`
+	}{Vars: vars, Steps: steps, DefaultRoles: defaultRoles})
+	return data
+}
+
 func TestRunFormulaApply_BasicPour(t *testing.T) {
 	mc := newMockClient()
 	mc.CreateIDs = []string{"kd-mol-1", "kd-step-1", "kd-step-2"}
@@ -730,6 +740,86 @@ func TestRunFormulaApply_LabelPropagation(t *testing.T) {
 		if !stepLabelSet[want] {
 			t.Errorf("step labels %v missing %q", stepReq.Labels, want)
 		}
+	}
+}
+
+func TestRunFormulaApply_DefaultRoles(t *testing.T) {
+	mc := newMockClient()
+	mc.CreateIDs = []string{"kd-m", "kd-s1", "kd-s2"}
+	mc.Beads["kd-f-roles"] = &model.Bead{
+		ID:    "kd-f-roles",
+		Type:  "formula",
+		Title: "Multi-role workflow",
+		Fields: makeFormulaFieldsWithRoles(nil, []FormulaStep{
+			{ID: "s1", Title: "Research"},
+			{ID: "s2", Title: "Implement", DependsOn: []string{"s1"}},
+		}, []string{"crew", "worker"}),
+	}
+	withMockClient(t, mc)
+
+	err := runFormulaApply(formulaApplyOpts{FormulaID: "kd-f-roles"})
+	if err != nil {
+		t.Fatalf("apply with default_roles: %v", err)
+	}
+
+	// Both steps should have role:crew and role:worker labels from default_roles.
+	for i, name := range []string{"s1", "s2"} {
+		stepReq := mc.CreateBeadCalls[i+1]
+		labelSet := make(map[string]bool)
+		for _, l := range stepReq.Labels {
+			labelSet[l] = true
+		}
+		for _, want := range []string{"role:crew", "role:worker"} {
+			if !labelSet[want] {
+				t.Errorf("step %s labels %v missing %q", name, stepReq.Labels, want)
+			}
+		}
+	}
+}
+
+func TestRunFormulaApply_StepRolesOverrideDefault(t *testing.T) {
+	mc := newMockClient()
+	mc.CreateIDs = []string{"kd-m", "kd-s1", "kd-s2"}
+	mc.Beads["kd-f-roles2"] = &model.Bead{
+		ID:    "kd-f-roles2",
+		Type:  "formula",
+		Title: "Override roles",
+		Fields: makeFormulaFieldsWithRoles(nil, []FormulaStep{
+			{ID: "s1", Title: "Step with default roles"},
+			{ID: "s2", Title: "Step with own roles", Roles: []string{"captain"}},
+		}, []string{"crew"}),
+	}
+	withMockClient(t, mc)
+
+	err := runFormulaApply(formulaApplyOpts{FormulaID: "kd-f-roles2"})
+	if err != nil {
+		t.Fatalf("apply with step role override: %v", err)
+	}
+
+	// Step 1 should use default_roles → role:crew.
+	s1 := mc.CreateBeadCalls[1]
+	s1Labels := make(map[string]bool)
+	for _, l := range s1.Labels {
+		s1Labels[l] = true
+	}
+	if !s1Labels["role:crew"] {
+		t.Errorf("step 1 labels %v missing role:crew (from default_roles)", s1.Labels)
+	}
+	if s1Labels["role:captain"] {
+		t.Errorf("step 1 labels %v should not have role:captain", s1.Labels)
+	}
+
+	// Step 2 should use its own roles → role:captain, NOT role:crew.
+	s2 := mc.CreateBeadCalls[2]
+	s2Labels := make(map[string]bool)
+	for _, l := range s2.Labels {
+		s2Labels[l] = true
+	}
+	if !s2Labels["role:captain"] {
+		t.Errorf("step 2 labels %v missing role:captain (from step roles)", s2.Labels)
+	}
+	if s2Labels["role:crew"] {
+		t.Errorf("step 2 labels %v should not have role:crew (overridden by step roles)", s2.Labels)
 	}
 }
 
