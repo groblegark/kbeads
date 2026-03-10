@@ -173,6 +173,27 @@ func TestDependencyType_IsValid(t *testing.T) {
 	}
 }
 
+func TestDependencyType_IsBlocking(t *testing.T) {
+	for _, tc := range []struct {
+		dep  DependencyType
+		want bool
+	}{
+		{DepBlocks, true},
+		{DepChildOf, true},
+		{DepParentChild, false},
+		{DepRelated, false},
+		{DepDuplicates, false},
+		{DepSupersedes, false},
+		{DependencyType("relates"), false},
+		{DependencyType("escalate"), false},
+		{DependencyType("jira-link"), false},
+	} {
+		if got := tc.dep.IsBlocking(); got != tc.want {
+			t.Errorf("DependencyType(%q).IsBlocking() = %v, want %v", tc.dep, got, tc.want)
+		}
+	}
+}
+
 func TestIsValidJackAction(t *testing.T) {
 	for _, tc := range []struct {
 		action string

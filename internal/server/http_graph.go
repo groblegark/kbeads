@@ -571,7 +571,7 @@ func (s *BeadsServer) handleGetReady(w http.ResponseWriter, r *http.Request) {
 		}
 		blocked := false
 		for _, d := range deps {
-			if d.Type == model.DepBlocks {
+			if d.Type.IsBlocking() {
 				// Check if the blocking bead is still open.
 				blocker, err := s.store.GetBead(r.Context(), d.DependsOnID)
 				if err != nil {
